@@ -36,7 +36,7 @@ export function Hero({ profile, onCvClick }) {
             {/* Status Pill */}
             <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full text-xs font-mono bg-obsidian-surface/90 border border-emerald-500/30 text-emerald-400 backdrop-blur-xl shadow-glow-emerald">
               <span className="pulse-dot" />
-              <span>Available for Software Engineering & BA Internships</span>
+              <span>{profile?.currentFocus || "Available for Software, Networking & Embedded Systems Opportunities"}</span>
             </div>
 
             {/* Name & Role */}

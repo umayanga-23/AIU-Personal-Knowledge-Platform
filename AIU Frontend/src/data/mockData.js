@@ -13,7 +13,7 @@ export const INITIAL_DATA = {
     youtube: "https://youtube.com",
     twitter: "https://twitter.com",
     profileImage: "/induwara-profile.png",
-    currentFocus: "Actively seeking Software Engineering & Business Analyst Internship opportunities.",
+    currentFocus: "Available for Software, Networking & Embedded Systems Opportunities",
     direction: "Leading innovative open-source software projects and developing scalable enterprise systems."
   },
 
