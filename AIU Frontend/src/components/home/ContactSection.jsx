@@ -4,6 +4,8 @@ import { useToast } from '../../context/ToastContext';
 
 export function ContactSection({ profile }) {
   const { addToast } = useToast();
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
