@@ -1,0 +1,29 @@
+# Environment Secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# Node / Frontend
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+
+# Java / Maven Backend
+target/
+*.class
+*.jar
+*.war
+.mvn/
+.tools/
+
+# IDE & OS
+.vscode/
+.idea/
+*.suo
+*.user
+*.userossc
+.DS_Store
+Thumbs.db

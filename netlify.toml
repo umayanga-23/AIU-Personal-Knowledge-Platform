@@ -1,0 +1,11 @@
+[build]
+  command = "cd 'AIU Frontend' && npm install && npx vite build"
+  publish = "AIU Frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
