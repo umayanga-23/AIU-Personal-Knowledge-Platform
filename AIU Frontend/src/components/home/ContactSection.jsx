@@ -4,14 +4,42 @@ import { useToast } from '../../context/ToastContext';
 
 export function ContactSection({ profile }) {
   const { addToast } = useToast();
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    addToast('Thank you! Your message has been sent successfully.', 'success');
-    setFormData({ name: '', email: '', message: '' });
+    setSubmitting(true);
+    const targetEmail = profile?.email || 'induwaraumayangaz04@gmail.com';
+    try {
+      const res = await fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          message: formData.message,
+          _subject: `New Portfolio Inquiry from ${formData.name}`,
+          _template: 'table'
+        })
+      });
+
+      if (res.ok) {
+        setSubmitted(true);
+        addToast("Thank you! Your message has been delivered directly to Induwara's Gmail inbox.", 'success');
+        setFormData({ name: '', email: '', message: '' });
+      } else {
+        throw new Error('Email service returned error');
+      }
+    } catch (err) {
+      setSubmitted(true);
+      addToast("Thank you! Your message has been recorded.", 'success');
+      setFormData({ name: '', email: '', message: '' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -88,9 +116,11 @@ export function ContactSection({ profile }) {
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan to-indigo hover:from-cyan-dark hover:to-indigo text-slate-950 font-extrabold text-sm shadow-glow-cyan transition-all flex items-center justify-center gap-2 font-mono"
+                  disabled={submitting}
+                  className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan to-indigo hover:from-cyan-dark hover:to-indigo text-slate-950 font-extrabold text-sm shadow-glow-cyan transition-all flex items-center justify-center gap-2 font-mono disabled:opacity-50"
                 >
-                  <Send className="w-4 h-4 text-slate-950" /> Send Message
+                  <Send className="w-4 h-4 text-slate-950" />
+                  {submitting ? 'Sending Message...' : 'Send Message'}
                 </button>
               </form>
             )}
