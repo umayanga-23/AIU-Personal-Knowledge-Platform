@@ -2,9 +2,15 @@ import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
+import { analyticsService } from '../services/analyticsService';
 
 export function PublicLayout() {
   const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    // Record public page visit into live Supabase Analytics
+    analyticsService.recordVisit(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     if (hash) {

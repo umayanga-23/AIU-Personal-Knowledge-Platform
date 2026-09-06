@@ -6,6 +6,7 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { ShieldCheck, Download, Calendar, FileText, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { analyticsService } from '../../services/analyticsService';
 
 export function CvPage() {
   const [cv, setCv] = useState(null);
@@ -63,6 +64,7 @@ export function CvPage() {
     }
 
     const fileName = cv?.fileName || 'Induwara_Umayanga_Alukirthi_CV.pdf';
+    analyticsService.recordCvDownload();
     pdfStorage.triggerDownload(cvUrl, fileName);
     addToast(`Downloading ${fileName}...`, 'success');
   };
