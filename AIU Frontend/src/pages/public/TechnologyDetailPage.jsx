@@ -55,6 +55,12 @@ export function TechnologyDetailPage() {
       }
     };
     fetchTech();
+    window.addEventListener('aiu_store_updated', fetchTech);
+    window.addEventListener('storage', fetchTech);
+    return () => {
+      window.removeEventListener('aiu_store_updated', fetchTech);
+      window.removeEventListener('storage', fetchTech);
+    };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading technology details..." />;

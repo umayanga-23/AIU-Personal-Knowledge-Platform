@@ -39,6 +39,12 @@ export function ResearchDetailPage() {
       }
     };
     fetchPaper();
+    window.addEventListener('aiu_store_updated', fetchPaper);
+    window.addEventListener('storage', fetchPaper);
+    return () => {
+      window.removeEventListener('aiu_store_updated', fetchPaper);
+      window.removeEventListener('storage', fetchPaper);
+    };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading publication details..." />;

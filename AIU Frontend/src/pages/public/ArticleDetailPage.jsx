@@ -40,6 +40,12 @@ export function ArticleDetailPage() {
       }
     };
     fetchArticle();
+    window.addEventListener('aiu_store_updated', fetchArticle);
+    window.addEventListener('storage', fetchArticle);
+    return () => {
+      window.removeEventListener('aiu_store_updated', fetchArticle);
+      window.removeEventListener('storage', fetchArticle);
+    };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading technical article..." />;

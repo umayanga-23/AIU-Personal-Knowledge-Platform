@@ -31,6 +31,13 @@ export function ProjectDetailPage() {
       }
     };
     fetchProject();
+
+    window.addEventListener('aiu_store_updated', fetchProject);
+    window.addEventListener('storage', fetchProject);
+    return () => {
+      window.removeEventListener('aiu_store_updated', fetchProject);
+      window.removeEventListener('storage', fetchProject);
+    };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading project architectural details..." />;

@@ -53,9 +53,13 @@ function sanitizeStoreForLocalStorage(rawStore) {
 const SUPABASE_URL = 'https://hazarfapmnkseudkicrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_g-sCLHpLFZVg39NBcLW_UA_NalMnoN1';
 
+let lastKnownUpdatedAt = null;
+
 // Direct cloud persistence to Supabase PostgreSQL Cloud Database
 export async function syncToSupabase(storeToSave) {
   try {
+    const timestamp = new Date().toISOString();
+    lastKnownUpdatedAt = timestamp;
     const res = await fetch(`${SUPABASE_URL}/rest/v1/aiu_platform_state`, {
       method: 'POST',
       headers: {
@@ -67,7 +71,7 @@ export async function syncToSupabase(storeToSave) {
       body: JSON.stringify({
         key: 'main_store',
         data: storeToSave,
-        updated_at: new Date().toISOString()
+        updated_at: timestamp
       })
     });
     if (!res.ok) {
@@ -94,6 +98,9 @@ export async function syncFromSupabase() {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0 && data[0]?.data) {
+        if (data[0]?.updated_at) {
+          lastKnownUpdatedAt = data[0].updated_at;
+        }
         const cloudData = data[0].data;
         store = {
           ...INITIAL_DATA,
@@ -127,13 +134,56 @@ export async function syncFromSupabase() {
   return store;
 }
 
-// Automatically sync immediately when application initializes in browser
+// Background real-time listener: polls lightweight timestamp every 3.5s; if cloud update detected, auto-refreshes data without reloading page!
+let heartbeatInterval = null;
+export function startLiveSyncHeartbeat(intervalMs = 3500) {
+  if (typeof window === 'undefined') return;
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+
+  const checkLiveUpdates = async () => {
+    // Skip polling if tab is hidden/background to save bandwidth and battery
+    if (document.hidden) return;
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/aiu_platform_state?key=eq.main_store&select=updated_at`, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (Array.isArray(result) && result.length > 0 && result[0]?.updated_at) {
+          const cloudUpdatedAt = result[0].updated_at;
+          if (lastKnownUpdatedAt && cloudUpdatedAt !== lastKnownUpdatedAt) {
+            console.log('⚡ Live Cloud update detected! Auto-updating UI in real-time...');
+            lastKnownUpdatedAt = cloudUpdatedAt;
+            await syncFromSupabase();
+          } else if (!lastKnownUpdatedAt) {
+            lastKnownUpdatedAt = cloudUpdatedAt;
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore network blips silently
+    }
+  };
+
+  heartbeatInterval = setInterval(checkLiveUpdates, intervalMs);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkLiveUpdates();
+  });
+  window.addEventListener('focus', () => {
+    checkLiveUpdates();
+  });
+}
+
+// Automatically start initial sync and real-time live sync heartbeat
 let initialSupabasePromise = null;
 if (typeof window !== 'undefined') {
   initialSupabasePromise = syncFromSupabase();
-  window.addEventListener('focus', () => {
-    syncFromSupabase();
-  });
+  startLiveSyncHeartbeat(3500);
 }
 
 function saveStore() {
