@@ -108,8 +108,8 @@ export const analyticsService = {
     });
 
     const deviceDistribution = [
-      { name: 'Desktop', value: Math.max(desktopCount > 0 ? desktopCount : 3, 1), color: '#22D3EE' },
-      { name: 'Mobile', value: Math.max(mobileCount > 0 ? mobileCount : 2, 1), color: '#818CF8' },
+      { name: 'Desktop', value: desktopCount, color: '#22D3EE' },
+      { name: 'Mobile', value: mobileCount, color: '#818CF8' },
       { name: 'Tablet', value: tabletCount, color: '#34D399' }
     ].filter(d => d.value > 0);
 
@@ -122,7 +122,7 @@ export const analyticsService = {
       .sort((a, b) => b.views - a.views)
       .slice(0, 6);
 
-    // 7-day trend
+    // 7-day trend strictly from real database rows
     const dailyTrend = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
@@ -133,13 +133,13 @@ export const analyticsService = {
       dailyTrend.push({
         day: dayLabel,
         date: dateStr,
-        visitors: Math.max(dayVisits, i === 0 ? Math.max(todayVisits, 1) : Math.floor(Math.random() * 2) + 1),
-        pageViews: Math.max(dayVisits * 2, i === 0 ? Math.max(todayVisits * 2, 2) : Math.floor(Math.random() * 3) + 2)
+        visitors: dayVisits,
+        pageViews: dayVisits
       });
     }
 
-    // Recent 6 visits for live feed
-    const recentVisits = visits.slice(0, 6).map(v => ({
+    // Recent visits for live feed
+    const recentVisits = visits.slice(0, 8).map(v => ({
       id: v.id,
       path: v.page_path,
       referrer: v.referrer || 'Direct',
@@ -149,15 +149,11 @@ export const analyticsService = {
     }));
 
     return {
-      totalVisits: Math.max(totalVisits, 6),
-      todayVisits: Math.max(todayVisits, 1),
-      cvDownloads: Math.max(cvDownloads, 1),
-      deviceDistribution,
-      pagePopularity: pagePopularity.length > 0 ? pagePopularity : [
-        { name: 'Home (/)', views: 3 },
-        { name: '/projects', views: 2 },
-        { name: '/cv', views: 1 }
-      ],
+      totalVisits,
+      todayVisits,
+      cvDownloads,
+      deviceDistribution: deviceDistribution.length > 0 ? deviceDistribution : [{ name: 'No Visits Yet', value: 1, color: '#475569' }],
+      pagePopularity,
       dailyTrend,
       recentVisits
     };

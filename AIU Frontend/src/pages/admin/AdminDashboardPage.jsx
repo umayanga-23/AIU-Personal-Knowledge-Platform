@@ -109,32 +109,26 @@ export function AdminDashboardPage() {
         { name: 'Database', value: 1, color: '#10B981' }
       ];
 
-  // Real Live Analytics Data from Supabase
-  const totalVisitsCount = analytics?.totalVisits ?? 5;
-  const todayVisitsCount = analytics?.todayVisits ?? 1;
-  const cvDownloadsCount = analytics?.cvDownloads ?? 1;
+  // Real Live Analytics Data strictly from Supabase
+  const totalVisitsCount = analytics?.totalVisits ?? 0;
+  const todayVisitsCount = analytics?.todayVisits ?? 0;
+  const cvDownloadsCount = analytics?.cvDownloads ?? 0;
 
-  // Real 7-day Traffic Trend
+  // Real 7-day Traffic Trend strictly from database
   const visitorGrowthData = analytics?.dailyTrend && analytics.dailyTrend.length > 0
     ? analytics.dailyTrend
     : [
-        { day: 'Mon', visitors: 1, pageViews: 2 },
-        { day: 'Tue', visitors: 2, pageViews: 3 },
-        { day: 'Wed', visitors: 2, pageViews: 4 },
-        { day: 'Thu', visitors: 3, pageViews: 5 },
-        { day: 'Fri', visitors: 4, pageViews: 6 },
-        { day: 'Sat', visitors: 5, pageViews: 8 },
-        { day: 'Sun', visitors: totalVisitsCount, pageViews: totalVisitsCount * 2 }
+        { day: 'Mon', visitors: 0, pageViews: 0 },
+        { day: 'Tue', visitors: 0, pageViews: 0 },
+        { day: 'Wed', visitors: 0, pageViews: 0 },
+        { day: 'Thu', visitors: 0, pageViews: 0 },
+        { day: 'Fri', visitors: 0, pageViews: 0 },
+        { day: 'Sat', visitors: 0, pageViews: 0 },
+        { day: 'Sun', visitors: 0, pageViews: 0 }
       ];
 
-  // Real Top Visited Pages Data
-  const popularContentData = analytics?.pagePopularity && analytics.pagePopularity.length > 0
-    ? analytics.pagePopularity
-    : [
-        { name: 'Home (/)', views: Math.max(3, Math.round(totalVisitsCount * 0.4)) },
-        { name: '/projects', views: Math.max(2, Math.round(totalVisitsCount * 0.3)) },
-        { name: '/cv', views: cvDownloadsCount }
-      ];
+  // Real Top Visited Pages Data strictly from database
+  const popularContentData = analytics?.pagePopularity || [];
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto font-sans">
@@ -412,34 +406,39 @@ export function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-obsidian-border">
-              {(analytics?.recentVisits && analytics.recentVisits.length > 0 ? analytics.recentVisits : [
-                { id: 1, path: '/', referrer: 'LinkedIn', device: 'Desktop', time: 'Just now', date: 'Today' },
-                { id: 2, path: '/projects', referrer: 'Direct', device: 'Desktop', time: '1m ago', date: 'Today' },
-                { id: 3, path: '/cv', referrer: 'LinkedIn', device: 'Mobile', time: '4m ago', date: 'Today' }
-              ]).map((visit, idx) => (
-                <tr key={visit.id || idx} className="hover:bg-obsidian-surface/40 transition-colors">
-                  <td className="py-3 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan border border-cyan-500/20 font-bold">
-                      {visit.path}
-                    </span>
-                  </td>
-                  <td className="py-3 text-typo-secondary">
-                    <span className="inline-flex items-center gap-1.5">
-                      {visit.device === 'Mobile' ? <Smartphone className="w-3.5 h-3.5 text-indigo-400" /> : <Monitor className="w-3.5 h-3.5 text-cyan" />}
-                      {visit.device}
-                    </span>
-                  </td>
-                  <td className="py-3 text-typo-secondary">
-                    <span className="inline-flex items-center gap-1">
-                      <Globe className="w-3.5 h-3.5 text-typo-muted" />
-                      {visit.referrer}
-                    </span>
-                  </td>
-                  <td className="py-3 text-right text-typo-muted">
-                    {visit.time} ({visit.date})
+              {analytics?.recentVisits && analytics.recentVisits.length > 0 ? (
+                analytics.recentVisits.map((visit, idx) => (
+                  <tr key={visit.id || idx} className="hover:bg-obsidian-surface/40 transition-colors">
+                    <td className="py-3 flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan border border-cyan-500/20 font-bold">
+                        {visit.path}
+                      </span>
+                    </td>
+                    <td className="py-3 text-typo-secondary">
+                      <span className="inline-flex items-center gap-1.5">
+                        {visit.device === 'Mobile' ? <Smartphone className="w-3.5 h-3.5 text-indigo-400" /> : <Monitor className="w-3.5 h-3.5 text-cyan" />}
+                        {visit.device}
+                      </span>
+                    </td>
+                    <td className="py-3 text-typo-secondary">
+                      <span className="inline-flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5 text-typo-muted" />
+                        {visit.referrer}
+                      </span>
+                    </td>
+                    <td className="py-3 text-right text-typo-muted">
+                      {visit.time} ({visit.date})
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="py-8 text-center text-typo-muted font-mono">
+                    <Activity className="w-5 h-5 text-cyan mx-auto mb-2 opacity-50" />
+                    No visitor sessions recorded yet. Fresh visits from mobile phones or recruiters will stream here live!
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
