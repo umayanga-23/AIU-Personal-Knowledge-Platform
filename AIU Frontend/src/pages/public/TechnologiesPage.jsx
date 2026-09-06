@@ -26,6 +26,13 @@ export function TechnologiesPage() {
 
   useEffect(() => {
     loadData();
+    const handleSync = () => loadData();
+    window.addEventListener('aiu_store_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('aiu_store_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const categories = ['Programming', 'Frameworks', 'Databases', 'Cloud', 'DevOps', 'AI', 'Tools'];

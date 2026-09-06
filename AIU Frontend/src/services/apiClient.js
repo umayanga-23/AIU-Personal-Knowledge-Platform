@@ -49,6 +49,93 @@ function sanitizeStoreForLocalStorage(rawStore) {
   return clean;
 }
 
+// Supabase Cloud Configuration
+const SUPABASE_URL = 'https://hazarfapmnkseudkicrz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_g-sCLHpLFZVg39NBcLW_UA_NalMnoN1';
+
+// Direct cloud persistence to Supabase PostgreSQL Cloud Database
+export async function syncToSupabase(storeToSave) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/aiu_platform_state`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        key: 'main_store',
+        data: storeToSave,
+        updated_at: new Date().toISOString()
+      })
+    });
+    if (!res.ok) {
+      console.warn('Supabase cloud sync warning:', res.status, await res.text());
+    } else {
+      console.log('✅ 100% Synced to Supabase Cloud Database successfully!');
+    }
+  } catch (err) {
+    console.warn('Supabase cloud sync network warning:', err);
+  }
+}
+
+let isSyncingFromCloud = false;
+export async function syncFromSupabase() {
+  if (isSyncingFromCloud) return store;
+  isSyncingFromCloud = true;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/aiu_platform_state?key=eq.main_store&select=*`, {
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0 && data[0]?.data) {
+        const cloudData = data[0].data;
+        store = {
+          ...INITIAL_DATA,
+          ...cloudData,
+          profile: { ...INITIAL_DATA.profile, ...(cloudData.profile || {}) },
+          footer: { ...INITIAL_DATA.footer, ...(cloudData.footer || {}) },
+          theme: { ...INITIAL_DATA.theme, ...(cloudData.theme || {}) },
+          projects: Array.isArray(cloudData.projects) ? cloudData.projects : INITIAL_DATA.projects,
+          research: Array.isArray(cloudData.research) ? cloudData.research : INITIAL_DATA.research,
+          articles: Array.isArray(cloudData.articles) ? cloudData.articles : INITIAL_DATA.articles,
+          technologies: Array.isArray(cloudData.technologies) ? cloudData.technologies : INITIAL_DATA.technologies,
+          videos: Array.isArray(cloudData.videos) ? cloudData.videos : INITIAL_DATA.videos,
+          journey: Array.isArray(cloudData.journey) ? cloudData.journey : INITIAL_DATA.journey,
+          skills: Array.isArray(cloudData.skills) ? cloudData.skills : INITIAL_DATA.skills,
+          education: Array.isArray(cloudData.education) ? cloudData.education : INITIAL_DATA.education,
+          awards: Array.isArray(cloudData.awards) ? cloudData.awards : INITIAL_DATA.awards,
+          leadership: Array.isArray(cloudData.leadership) ? cloudData.leadership : INITIAL_DATA.leadership,
+          cv: cloudData.cv || INITIAL_DATA.cv
+        };
+        saveStore();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('aiu_store_updated', { detail: store }));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetch failed, continuing with cached store:', err);
+  } finally {
+    isSyncingFromCloud = false;
+  }
+  return store;
+}
+
+// Automatically sync immediately when application initializes in browser
+let initialSupabasePromise = null;
+if (typeof window !== 'undefined') {
+  initialSupabasePromise = syncFromSupabase();
+  window.addEventListener('focus', () => {
+    syncFromSupabase();
+  });
+}
+
 function saveStore() {
   try {
     localStorage.setItem('aiu_platform_store', JSON.stringify(store));
@@ -70,6 +157,8 @@ export const updateStore = (updater) => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('aiu_store_updated', { detail: store }));
   }
+  // Immediately persist changes to Supabase Cloud Database!
+  syncToSupabase(store);
   return store;
 };
 
@@ -79,7 +168,7 @@ class ApiClient {
     this.baseUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
       ? 'https://aiu-personal-knowledge-platform.onrender.com/api'
       : '/api';
-    this.token = localStorage.getItem('aiu_admin_token') || null;
+    this.token = typeof localStorage !== 'undefined' ? (localStorage.getItem('aiu_admin_token') || null) : null;
   }
 
   setToken(token) {
@@ -103,6 +192,18 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
+    // Await initial Supabase sync (with timeout guard) so public endpoints have freshest cloud data
+    if (initialSupabasePromise) {
+      try {
+        await Promise.race([
+          initialSupabasePromise,
+          new Promise(res => setTimeout(res, 1500))
+        ]);
+      } catch (e) {
+        // Continue safely
+      }
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,

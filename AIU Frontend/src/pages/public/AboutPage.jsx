@@ -13,10 +13,20 @@ export function AboutPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const data = getStore();
-    setProfile(data.profile);
-    setStore(data);
-    setLoading(false);
+    const syncData = () => {
+      const data = getStore();
+      setProfile(data.profile);
+      setStore(data);
+      setLoading(false);
+    };
+
+    syncData();
+    window.addEventListener('aiu_store_updated', syncData);
+    window.addEventListener('storage', syncData);
+    return () => {
+      window.removeEventListener('aiu_store_updated', syncData);
+      window.removeEventListener('storage', syncData);
+    };
   }, []);
 
   if (loading || !profile || !store) return <LoadingState message="Loading About Me details..." />;
