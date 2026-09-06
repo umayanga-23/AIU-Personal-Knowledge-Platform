@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 
 // Layouts
 import { PublicLayout } from './layouts/PublicLayout';
@@ -92,6 +93,7 @@ export default function App() {
         {/* CATCH ALL REDIRECT */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
