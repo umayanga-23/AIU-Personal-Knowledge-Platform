@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Palette, ShieldAlert, Menu, X, Terminal, LogOut } from 'lucide-react';
+import { Sun, Moon, Palette, ShieldAlert, Menu, X, Terminal, LogOut, Lock } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { authService } from '../../services/authService';
 
@@ -107,15 +107,25 @@ export function Navbar() {
               <Palette className="w-4 h-4 text-cyan" />
             </button>
 
-            {/* Admin Dashboard Badge Button - ONLY VISIBLE WHEN LOGGED IN AS ADMIN */}
-            {isAdmin && (
+            {/* Admin Access Button */}
+            {isAdmin ? (
               <Link
                 to="/admin/dashboard"
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan text-xs font-mono font-bold transition-all hover:bg-cyan-500/20 shadow-glow-cyan"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan text-xs font-mono font-bold transition-all hover:bg-cyan-500/20 shadow-glow-cyan"
                 title="Open Admin Dashboard"
               >
-                <ShieldAlert className="w-4 h-4 text-cyan" />
-                <span>Admin Panel</span>
+                <ShieldAlert className="w-3.5 h-3.5 text-cyan" />
+                <span className="hidden sm:inline">Admin Panel</span>
+                <span className="sm:hidden">Admin</span>
+              </Link>
+            ) : (
+              <Link
+                to="/admin/login"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-obsidian-surface border border-obsidian-border text-typo-secondary hover:text-cyan hover:border-cyan/30 text-xs font-mono transition-all"
+                title="Admin Portal Login"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Admin</span>
               </Link>
             )}
 
@@ -152,13 +162,21 @@ export function Navbar() {
                 </a>
               );
             })}
-            {isAdmin && (
+            {isAdmin ? (
               <Link
                 to="/admin/dashboard"
                 onClick={() => setMobileOpen(false)}
                 className="block px-4 py-2.5 rounded-xl text-sm font-semibold text-cyan bg-cyan-500/10 border border-cyan-500/30 mt-3 text-center font-mono"
               >
-                ⚙️ Admin Panel
+                ⚙️ Admin Dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/admin/login"
+                onClick={() => setMobileOpen(false)}
+                className="block px-4 py-2.5 rounded-xl text-sm font-semibold text-typo-secondary hover:text-cyan bg-obsidian-surface border border-obsidian-border mt-3 text-center font-mono"
+              >
+                🔒 Admin Login
               </Link>
             )}
           </div>

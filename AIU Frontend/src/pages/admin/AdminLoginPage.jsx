@@ -23,7 +23,7 @@ export function AdminLoginPage() {
     try {
       await authService.login(username, password);
       addToast('Authenticated successfully as Administrator!', 'success');
-      setIsSuccess(true);
+      navigate('/admin/dashboard');
     } catch (err) {
       setError(err.message || 'Invalid administrative credentials.');
     } finally {
