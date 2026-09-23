@@ -73,14 +73,16 @@ export function AdminDashboardPage() {
         { data: articles },
         { data: technologies },
         { data: videos },
-        { data: journey }
+        { data: journey },
+        { data: cvDoc }
       ] = await Promise.all([
         supabase.from('projects').select('*'),
         supabase.from('research').select('*'),
         supabase.from('articles').select('*'),
         supabase.from('technologies').select('*'),
         supabase.from('videos').select('*'),
-        supabase.from('learning_journey').select('*')
+        supabase.from('learning_journey').select('*'),
+        supabase.from('cv_documents').select('*').eq('is_current', true).maybeSingle()
       ]);
 
       setTelemetry({
@@ -89,7 +91,8 @@ export function AdminDashboardPage() {
         articles: articles || [],
         technologies: technologies || [],
         videos: videos || [],
-        journey: journey || []
+        journey: journey || [],
+        cv: cvDoc || null
       });
     } catch (e) {
       console.warn('Dashboard fetch error:', e);
@@ -489,10 +492,10 @@ export function AdminDashboardPage() {
         <div className="p-6 glass-card rounded-2xl flex items-center justify-between">
           <div>
             <p className="text-xs font-mono text-typo-secondary uppercase tracking-wider">Current CV</p>
-            <h3 className="text-xl font-bold text-typo-primary mt-1 font-mono">{store.cv?.version || 'v2.5'}</h3>
-            <p className="text-[11px] text-typo-muted mt-1">Updated {store.cv?.lastUpdated || '2026-08-30'}</p>
+            <h3 className="text-xl font-bold text-typo-primary mt-1 font-mono">{telemetry.cv?.version || 'v2.5'}</h3>
+            <p className="text-[11px] text-typo-muted mt-1">{telemetry.cv?.file_name || 'Induwara_Umayanga_CV.pdf'}</p>
           </div>
-          <StatusBadge status={store.cv?.status || 'PUBLISHED'} />
+          <StatusBadge status="PUBLISHED" />
         </div>
       </div>
 

@@ -7,11 +7,13 @@ import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { researchService } from '../../services/researchService';
 import { articleService } from '../../services/articleService';
+import { technologyService } from '../../services/technologyService';
 
 export function CollectionPage() {
   const [activeTab, setActiveTab] = useState('research'); // 'research' | 'articles'
   const [researchList, setResearchList] = useState([]);
   const [articlesList, setArticlesList] = useState([]);
+  const [techList, setTechList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,12 +22,14 @@ export function CollectionPage() {
     try {
       setLoading(true);
       setError(null);
-      const [res, art] = await Promise.all([
+      const [res, art, tech] = await Promise.all([
         researchService.getAllPublic(),
-        articleService.getAllPublic()
+        articleService.getAllPublic(),
+        technologyService.getAllPublic()
       ]);
       setResearchList(res || []);
       setArticlesList(art || []);
+      setTechList(tech || []);
     } catch (err) {
       console.error('Failed to load collection:', err);
       setError(err.message || 'Unable to load collection data');
@@ -81,7 +85,7 @@ export function CollectionPage() {
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>Part 1: Research Papers ({store.research.filter(r => r.status === 'PUBLISHED').length})</span>
+            <span>Part 1: Research Papers ({researchList.length})</span>
           </button>
 
           <button
@@ -93,7 +97,7 @@ export function CollectionPage() {
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Part 2: Technical Articles ({store.articles.filter(a => a.status === 'PUBLISHED').length})</span>
+            <span>Part 2: Technical Articles ({articlesList.length})</span>
           </button>
         </div>
 
@@ -166,7 +170,7 @@ export function CollectionPage() {
               <Layers className="w-5 h-5 text-cyan" /> Featured Technology Stack
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {store.technologies.slice(0, 4).map(tech => (
+              {techList.slice(0, 4).map(tech => (
                 <TechnologyCard key={tech.id} tech={tech} />
               ))}
             </div>
