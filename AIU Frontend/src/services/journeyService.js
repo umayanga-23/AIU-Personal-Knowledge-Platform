@@ -1,23 +1,86 @@
-import { apiClient } from './apiClient';
+import { supabase } from './supabaseClient';
 
 export const journeyService = {
-  getAllPublic() {
-    return apiClient.get('/public/journey');
+  async getAll() {
+    return this.getAllPublic();
   },
 
-  getAllAdmin() {
-    return apiClient.get('/admin/journey');
+  async getAllPublic() {
+    const { data, error } = await supabase
+      .from('learning_journey')
+      .select('*')
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return (data || []).map(this.mapFromDb);
   },
 
-  create(data) {
-    return apiClient.post('/admin/journey', data);
+  async getAllAdmin() {
+    return this.getAllPublic();
   },
 
-  update(id, data) {
-    return apiClient.put(`/admin/journey/${id}`, data);
+  async create(journeyData) {
+    const id = journeyData.id || 'jrn-' + Date.now();
+    const payload = this.mapToDb({ ...journeyData, id });
+
+    const { data, error } = await supabase
+      .from('learning_journey')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return this.mapFromDb(data);
   },
 
-  delete(id) {
-    return apiClient.delete(`/admin/journey/${id}`);
+  async update(id, journeyData) {
+    const payload = this.mapToDb(journeyData);
+    delete payload.id;
+
+    const { data, error } = await supabase
+      .from('learning_journey')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return this.mapFromDb(data);
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('learning_journey')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return true;
+  },
+
+  mapFromDb(row) {
+    return {
+      id: row.id,
+      date: row.date_range,
+      title: row.title,
+      learned: row.learned || '',
+      built: row.built || '',
+      technologies: Array.isArray(row.technologies) ? row.technologies : [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  },
+
+  mapToDb(data) {
+    return {
+      id: data.id,
+      date_range: data.date,
+      title: data.title,
+      learned: data.learned,
+      built: data.built,
+      technologies: data.technologies || [],
+      updated_at: new Date().toISOString()
+    };
   }
 };

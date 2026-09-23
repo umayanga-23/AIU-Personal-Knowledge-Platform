@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { educationService } from '../../services/educationService';
 import { useToast } from '../../context/ToastContext';
 import { GraduationCap, Plus, Trash2, Edit2, MapPin, Calendar, Building2 } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -22,10 +22,20 @@ export function AdminEducationPage() {
 
   const [formData, setFormData] = useState(initialFormData);
 
+  const fetchEducation = async () => {
+    try {
+      setLoading(true);
+      const data = await educationService.getAll();
+      setEducation(data || []);
+    } catch (err) {
+      addToast(err.message || 'Failed to fetch education records', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const store = getStore();
-    setEducation(store.education || []);
-    setLoading(false);
+    fetchEducation();
   }, []);
 
   const handleOpenCreate = () => {
@@ -52,32 +62,35 @@ export function AdminEducationPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this education entry?')) {
-      const updated = education.filter(item => item.id !== id);
-      setEducation(updated);
-      updateStore(s => ({ ...s, education: updated }));
-      addToast('Education entry deleted successfully.', 'info');
+      try {
+        await educationService.delete(id);
+        const updated = education.filter(item => item.id !== id);
+        setEducation(updated);
+        addToast('Education entry deleted successfully from Supabase.', 'info');
+      } catch (err) {
+        addToast(err.message || 'Failed to delete education entry', 'error');
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    let updated;
-    if (editingId) {
-      updated = education.map(item => item.id === editingId ? { ...item, ...formData } : item);
-      addToast('Academic entry updated successfully!', 'success');
-    } else {
-      const newItem = {
-        id: 'edu-' + Date.now(),
-        ...formData
-      };
-      updated = [newItem, ...education];
-      addToast('New academic entry added successfully!', 'success');
+    try {
+      if (editingId) {
+        await educationService.update(editingId, formData);
+        setEducation(education.map(item => item.id === editingId ? { ...item, ...formData } : item));
+        addToast('Academic entry updated successfully in Supabase PostgreSQL!', 'success');
+      } else {
+        const created = await educationService.create(formData);
+        setEducation([...education, created]);
+        addToast('New academic entry added successfully to Supabase PostgreSQL!', 'success');
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      addToast(err.message || 'Failed to save education entry', 'error');
     }
-    setEducation(updated);
-    updateStore(s => ({ ...s, education: updated }));
-    setIsModalOpen(false);
   };
 
   if (loading) return <LoadingState message="Loading Education Path..." />;

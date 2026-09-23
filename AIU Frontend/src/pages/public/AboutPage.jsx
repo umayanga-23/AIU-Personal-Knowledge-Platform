@@ -1,52 +1,73 @@
 import React, { useEffect, useState } from 'react';
-import { getStore } from '../../services/apiClient';
 import { LoadingState } from '../../components/common/LoadingState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { AboutSection } from '../../components/home/AboutSection';
 import { SkillsSection } from '../../components/home/SkillsSection';
 import { EducationSection } from '../../components/home/EducationSection';
 import { AwardsSection } from '../../components/home/AwardsSection';
 import { LeadershipSection } from '../../components/home/LeadershipSection';
+import { profileService } from '../../services/profileService';
+import { skillService } from '../../services/skillService';
+import { educationService } from '../../services/educationService';
+import { awardService } from '../../services/awardService';
+import { leadershipService } from '../../services/leadershipService';
 
 export function AboutPage() {
-  const [profile, setProfile] = useState(null);
-  const [store, setStore] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [profile, skills, education, awards, leadership] = await Promise.all([
+        profileService.get(),
+        skillService.getAll(),
+        educationService.getAll(),
+        awardService.getAll(),
+        leadershipService.getAll()
+      ]);
+
+      setData({
+        profile: profile || {},
+        skills: skills || [],
+        education: education || [],
+        awards: awards || [],
+        leadership: leadership || []
+      });
+    } catch (err) {
+      console.error('Failed to load about data:', err);
+      setError(err.message || 'Unable to connect to Supabase database.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const syncData = () => {
-      const data = getStore();
-      setProfile(data.profile);
-      setStore(data);
-      setLoading(false);
-    };
-
-    syncData();
-    window.addEventListener('aiu_store_updated', syncData);
-    window.addEventListener('storage', syncData);
-    return () => {
-      window.removeEventListener('aiu_store_updated', syncData);
-      window.removeEventListener('storage', syncData);
-    };
+    loadData();
   }, []);
 
-  if (loading || !profile || !store) return <LoadingState message="Loading About Me details..." />;
+  if (loading) return <LoadingState message="Loading About Me details..." />;
+  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (!data) return null;
 
   return (
     <div className="space-y-0 py-8">
       {/* Bio Overview */}
-      <AboutSection profile={profile} />
+      <AboutSection profile={data.profile} />
 
       {/* Technical Skills */}
-      <SkillsSection skills={store.skills} />
+      <SkillsSection skills={data.skills} />
 
       {/* Academic Timeline */}
-      <EducationSection education={store.education} />
+      <EducationSection education={data.education} />
 
       {/* Certifications & Awards */}
-      <AwardsSection awards={store.awards} />
+      <AwardsSection awards={data.awards} />
 
       {/* Leadership Experience */}
-      <LeadershipSection leadership={store.leadership} />
+      <LeadershipSection leadership={data.leadership} />
     </div>
   );
 }

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { cvService } from '../../services/cvService';
-import { getStore } from '../../services/apiClient';
-import { pdfStorage } from '../../utils/pdfStorage';
 import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
+import { EmptyState } from '../../components/common/EmptyState';
 import { ShieldCheck, Download, Calendar, FileText, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { analyticsService } from '../../services/analyticsService';
@@ -18,22 +17,11 @@ export function CvPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await cvService.getCurrentPublic().catch(() => null);
-      const store = getStore();
-      let finalCv = data || store?.cv;
-
-      // Hydrate persistent base64 file from IndexedDB if needed
-      if (finalCv && finalCv.fileUrl === 'PERSISTED_IN_INDEXEDDB') {
-        const persistedData = await pdfStorage.getPdf('active_cv');
-        if (persistedData) {
-          finalCv = { ...finalCv, fileUrl: persistedData };
-        }
-      }
-
-      setCv(finalCv);
+      const data = await cvService.getCurrentPublic();
+      setCv(data);
     } catch (err) {
-      const store = getStore();
-      setCv(store?.cv);
+      console.error('Failed to load CV:', err);
+      setError(err.message || 'Unable to retrieve published Curriculum Vitae.');
     } finally {
       setLoading(false);
     }
@@ -41,36 +29,42 @@ export function CvPage() {
 
   useEffect(() => {
     loadCv();
-
-    const handleSync = () => loadCv();
-    window.addEventListener('aiu_store_updated', handleSync);
-    window.addEventListener('storage', handleSync);
-    return () => {
-      window.removeEventListener('aiu_store_updated', handleSync);
-      window.removeEventListener('storage', handleSync);
-    };
   }, []);
 
   const handleDirectDownload = async () => {
-    let cvUrl = cv?.fileUrl;
-
-    if (!cvUrl || cvUrl === 'PERSISTED_IN_INDEXEDDB') {
-      const persistedData = await pdfStorage.getPdf('active_cv');
-      if (persistedData) cvUrl = persistedData;
-    }
+    const cvUrl = cv?.fileUrl;
 
     if (!cvUrl) {
-      cvUrl = "https://aiu-portfolio.supabase.co/storage/v1/object/public/cv/Induwara_Umayanga_Alukirthi_CV.pdf";
+      addToast('No active CV file URL available for download', 'error');
+      return;
     }
 
     const fileName = cv?.fileName || 'Induwara_Umayanga_Alukirthi_CV.pdf';
     analyticsService.recordCvDownload();
-    pdfStorage.triggerDownload(cvUrl, fileName);
-    addToast(`Downloading ${fileName}...`, 'success');
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = cvUrl;
+    link.download = fileName;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    addToast(`Opening ${fileName}...`, 'success');
   };
 
   if (loading) return <LoadingState message="Loading Curriculum Vitae..." />;
   if (error) return <ErrorState message={error} onRetry={loadCv} />;
+  if (!cv) return (
+    <div className="py-20">
+      <EmptyState
+        title="No Published CV"
+        message="A verified Curriculum Vitae document has not been published yet."
+      />
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-10 font-sans">

@@ -1,27 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Terminal, Github, Linkedin, Youtube, Twitter } from 'lucide-react';
-import { getStore } from '../../services/apiClient';
+import { footerService } from '../../services/footerService';
+import { profileService } from '../../services/profileService';
 
 export function Footer() {
   const [footerData, setFooterData] = useState(null);
 
   useEffect(() => {
-    const syncFooter = () => {
-      const store = getStore();
-      setFooterData({
-        ...store.profile,
-        ...(store.footer || {})
-      });
+    let mounted = true;
+    const loadFooter = async () => {
+      try {
+        const [footer, profile] = await Promise.all([
+          footerService.get().catch(() => null),
+          profileService.get().catch(() => null)
+        ]);
+        if (mounted) {
+          setFooterData({
+            ...(profile || {}),
+            ...(footer || {})
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load footer data', err);
+      }
     };
 
-    syncFooter();
-
-    window.addEventListener('aiu_store_updated', syncFooter);
-    window.addEventListener('storage', syncFooter);
+    loadFooter();
     return () => {
-      window.removeEventListener('aiu_store_updated', syncFooter);
-      window.removeEventListener('storage', syncFooter);
+      mounted = false;
     };
   }, []);
 

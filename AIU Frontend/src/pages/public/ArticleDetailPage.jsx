@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { articleService } from '../../services/articleService';
-import { getStore } from '../../services/apiClient';
+import { projectService } from '../../services/projectService';
+import { researchService } from '../../services/researchService';
 import { ArrowLeft, Clock, Calendar, Layers, Code2, FileText, ExternalLink } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -14,45 +15,47 @@ export function ArticleDetailPage() {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [store, setStore] = useState(null);
+  const [relatedData, setRelatedData] = useState({ projects: [], research: [] });
 
   useEffect(() => {
+    let active = true;
     const fetchArticle = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await articleService.getBySlug(slug).catch(() => null);
-        const storeData = getStore();
-        const finalArticle = data || storeData?.articles.find(a => a.slug === slug || a.id === slug);
-        setArticle(finalArticle);
-        setStore(storeData);
-      } catch (err) {
-        const storeData = getStore();
-        const fallback = storeData?.articles.find(a => a.slug === slug || a.id === slug);
-        if (fallback) {
-          setArticle(fallback);
-          setStore(storeData);
-        } else {
-          setError(err.message || 'Technical article not found');
+        const data = await articleService.getBySlug(slug);
+        if (!active) return;
+        setArticle(data);
+
+        const [projList, resList] = await Promise.all([
+          projectService.getAllPublic().catch(() => []),
+          researchService.getAllPublic().catch(() => [])
+        ]);
+
+        if (active) {
+          setRelatedData({
+            projects: projList || [],
+            research: resList || []
+          });
         }
+      } catch (err) {
+        if (active) setError(err.message || 'Technical article not found');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchArticle();
-    window.addEventListener('aiu_store_updated', fetchArticle);
-    window.addEventListener('storage', fetchArticle);
+
     return () => {
-      window.removeEventListener('aiu_store_updated', fetchArticle);
-      window.removeEventListener('storage', fetchArticle);
+      active = false;
     };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading technical article..." />;
   if (error || !article) return <ErrorState message={error || 'Technical article not found'} />;
 
-  const relatedProjectsList = store?.projects.filter(p => article.relatedProjects?.includes(p.id) && p.status === 'PUBLISHED') || [];
-  const relatedResearchList = store?.research.filter(r => article.relatedResearch?.includes(r.id) && r.status === 'PUBLISHED') || [];
+  const relatedProjectsList = relatedData.projects.filter(p => article.relatedProjects?.includes(p.id)) || [];
+  const relatedResearchList = relatedData.research.filter(r => article.relatedResearch?.includes(r.id)) || [];
   const pdfUrl = article.documentUrl || article.pdfUrl;
 
   return (

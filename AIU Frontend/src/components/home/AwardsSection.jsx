@@ -1,76 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Award, ExternalLink, Eye, X, FileText } from 'lucide-react';
-import { pdfStorage } from '../../utils/pdfStorage';
 
-export function AwardsSection({ awards }) {
+export function AwardsSection({ awards = [] }) {
   const [selectedMedia, setSelectedMedia] = useState(null); // { url, title, isPdf }
-  const [hydratedAwards, setHydratedAwards] = useState([]);
-
-  const defaultAwards = [
-    {
-      id: "award-1",
-      title: "HackElite 2.0 Finalist",
-      issuer: "LevelUp LMS EdTech Project - IEEE WIE Student Affinity Group",
-      year: "2026",
-      imageUrl: "https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?auto=format&fit=crop&w=800&q=80",
-      credentialUrl: "https://ieee.org"
-    },
-    {
-      id: "award-2",
-      title: "InspiHER{Tech} V3.0 Finalist",
-      issuer: "IEEE WIE Student Branch Affinity Group (SLTC)",
-      year: "2026",
-      imageUrl: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=800&q=80",
-      credentialUrl: "https://ieee.org"
-    },
-    {
-      id: "award-3",
-      title: "Innovate with Ballerina Coding Challenge",
-      issuer: "IEEE CS Student Branch Chapter & WSO2",
-      year: "2025",
-      imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
-      credentialUrl: "https://wso2.com"
-    },
-    {
-      id: "award-4",
-      title: "Introduction to SQL Certification",
-      issuer: "Sololearn",
-      year: "2025",
-      imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
-      credentialUrl: "https://sololearn.com"
-    },
-    {
-      id: "award-5",
-      title: "FIT Expo Active Participant",
-      issuer: "Lora10 Microcontroller Project - IT Faculty",
-      year: "2025",
-      imageUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
-      credentialUrl: ""
-    }
-  ];
-
-  useEffect(() => {
-    const list = awards || [];
-    const hydrate = async () => {
-      const items = await Promise.all(
-        list.map(async (item) => {
-          let img = item.imageUrl;
-          let cred = item.credentialUrl;
-          if (img === 'PERSISTED_IN_INDEXEDDB') {
-            const dbImg = await pdfStorage.getPdf('award_img_' + item.id);
-            if (dbImg) img = dbImg;
-          }
-          if (cred === 'PERSISTED_IN_INDEXEDDB') {
-            const dbCred = await pdfStorage.getPdf('award_cred_' + item.id);
-            if (dbCred) cred = dbCred;
-          }
-          return { ...item, imageUrl: img, credentialUrl: cred };
-        })
-      );
-      setHydratedAwards(items);
-    };
-    hydrate();
-  }, [awards]);
+  const awardsList = Array.isArray(awards) ? awards : [];
 
   const isPdf = (url = '') => {
     return url && (url.startsWith('data:application/pdf') || url.toLowerCase().includes('.pdf'));
@@ -118,7 +51,7 @@ export function AwardsSection({ awards }) {
 
         {/* Awards Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {hydratedAwards.map((award, idx) => {
+          {awardsList.map((award, idx) => {
             const hasPdf = isPdf(award.imageUrl) || isPdf(award.credentialUrl);
             const pdfUrl = isPdf(award.imageUrl) ? award.imageUrl : award.credentialUrl;
 

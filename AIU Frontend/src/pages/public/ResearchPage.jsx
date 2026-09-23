@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { researchService } from '../../services/researchService';
-import { getStore } from '../../services/apiClient';
 import { ResearchCard } from '../../components/cards/ResearchCard';
 import { SearchBar } from '../../components/common/SearchBar';
 import { Pagination } from '../../components/common/Pagination';
@@ -39,14 +38,11 @@ export function ResearchPage() {
     try {
       setLoading(true);
       setError(null);
-      const resData = await researchService.getAllPublic().catch(() => null);
-      const raw = Array.isArray(resData) ? resData : (resData?.data?.content || resData?.data || resData?.content || null);
-      const store = getStore();
-      const finalResearch = (raw && raw.length > 0) ? raw : (store?.research || []);
-      setResearchList(finalResearch);
+      const resData = await researchService.getAllPublic();
+      setResearchList(resData || []);
     } catch (err) {
-      const store = getStore();
-      setResearchList(store?.research || []);
+      console.error('Failed to load research papers:', err);
+      setError(err.message || 'Unable to retrieve research papers from database.');
     } finally {
       setLoading(false);
     }
@@ -54,13 +50,6 @@ export function ResearchPage() {
 
   useEffect(() => {
     loadData();
-    const handleSync = () => loadData();
-    window.addEventListener('aiu_store_updated', handleSync);
-    window.addEventListener('storage', handleSync);
-    return () => {
-      window.removeEventListener('aiu_store_updated', handleSync);
-      window.removeEventListener('storage', handleSync);
-    };
   }, []);
 
   const filteredResearch = useMemo(() => {

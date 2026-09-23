@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { technologyService } from '../../services/technologyService';
-import { getStore } from '../../services/apiClient';
+import { projectService } from '../../services/projectService';
+import { articleService } from '../../services/articleService';
+import { researchService } from '../../services/researchService';
 import { ArrowLeft, ExternalLink, Code2, BookOpen, FileText, Layers } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -14,21 +16,20 @@ export function TechnologyDetailPage() {
   const [tech, setTech] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [store, setStore] = useState(null);
+  const [connectedData, setConnectedData] = useState({ projects: [], articles: [], research: [] });
 
   useEffect(() => {
+    let active = true;
     const fetchTech = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await technologyService.getBySlug(slug).catch(() => null);
-        const storeData = getStore();
-        let finalTech = data || storeData?.technologies?.find(t => t.slug === slug || t.id === slug || t.name?.toLowerCase() === slug.toLowerCase());
+        let data = await technologyService.getBySlug(slug).catch(() => null);
 
-        // Dynamic fallback so clicking ANY technology tag works seamlessly
-        if (!finalTech) {
+        // Fallback for tags not in technology table
+        if (!data) {
           const formattedName = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
-          finalTech = {
+          data = {
             id: slug,
             slug: slug,
             name: formattedName,
@@ -37,29 +38,32 @@ export function TechnologyDetailPage() {
           };
         }
 
-        setTech(finalTech);
-        setStore(storeData);
+        if (!active) return;
+        setTech(data);
+
+        const [projects, articles, research] = await Promise.all([
+          projectService.getAllPublic().catch(() => []),
+          articleService.getAllPublic().catch(() => []),
+          researchService.getAllPublic().catch(() => [])
+        ]);
+
+        if (active) {
+          setConnectedData({
+            projects: projects || [],
+            articles: articles || [],
+            research: research || []
+          });
+        }
       } catch (err) {
-        const storeData = getStore();
-        const formattedName = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
-        setTech({
-          id: slug,
-          slug: slug,
-          name: formattedName,
-          category: 'Architecture Tag',
-          description: `Showing all portfolio projects, technical articles, and research papers tagged with #${formattedName}.`
-        });
-        setStore(storeData);
+        if (active) setError(err.message || 'Technology not found');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchTech();
-    window.addEventListener('aiu_store_updated', fetchTech);
-    window.addEventListener('storage', fetchTech);
+
     return () => {
-      window.removeEventListener('aiu_store_updated', fetchTech);
-      window.removeEventListener('storage', fetchTech);
+      active = false;
     };
   }, [slug]);
 
@@ -67,9 +71,9 @@ export function TechnologyDetailPage() {
   if (error || !tech) return <ErrorState message={error || 'Technology not found'} />;
 
   // Find connected entities in graph
-  const connectedProjects = store?.projects.filter(p => p.technologies?.includes(tech.slug) && p.status === 'PUBLISHED') || [];
-  const connectedArticles = store?.articles.filter(a => (a.technology === tech.slug || a.tags?.includes(tech.name)) && a.status === 'PUBLISHED') || [];
-  const connectedResearch = store?.research.filter(r => (r.technologies?.includes(tech.slug) || r.tags?.includes(tech.name)) && r.status === 'PUBLISHED') || [];
+  const connectedProjects = connectedData.projects.filter(p => p.technologies?.includes(tech.slug));
+  const connectedArticles = connectedData.articles.filter(a => (a.technology === tech.slug || a.tags?.includes(tech.name)));
+  const connectedResearch = connectedData.research.filter(r => (r.technologies?.includes(tech.slug) || r.tags?.includes(tech.name)));
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { projectService } from '../../services/projectService';
 import { technologyService } from '../../services/technologyService';
-import { getStore } from '../../services/apiClient';
 import { ProjectCard } from '../../components/cards/ProjectCard';
 import { SearchBar } from '../../components/common/SearchBar';
 import { FilterBar } from '../../components/common/FilterBar';
@@ -53,23 +52,15 @@ export function ProjectsPage() {
       setLoading(true);
       setError(null);
       const [projData, techData] = await Promise.all([
-        projectService.getAllPublic().catch(() => null),
-        technologyService.getAllPublic().catch(() => null)
+        projectService.getAllPublic(),
+        technologyService.getAllPublic()
       ]);
 
-      const rawProjects = Array.isArray(projData) ? projData : (projData?.data?.content || projData?.data || projData?.content || null);
-      const rawTech = Array.isArray(techData) ? techData : (techData?.data?.content || techData?.data || techData?.content || null);
-
-      const store = getStore();
-      const finalProjects = (rawProjects && rawProjects.length > 0) ? rawProjects : (store?.projects || []);
-      const finalTech = (rawTech && rawTech.length > 0) ? rawTech : (store?.technologies || []);
-
-      setProjects(finalProjects);
-      setTechnologies(finalTech);
+      setProjects(projData || []);
+      setTechnologies(techData || []);
     } catch (err) {
-      const store = getStore();
-      setProjects(store?.projects || []);
-      setTechnologies(store?.technologies || []);
+      console.error('Failed to load projects:', err);
+      setError(err.message || 'Unable to retrieve projects from database.');
     } finally {
       setLoading(false);
     }
@@ -77,13 +68,6 @@ export function ProjectsPage() {
 
   useEffect(() => {
     loadData();
-    const handleSync = () => loadData();
-    window.addEventListener('aiu_store_updated', handleSync);
-    window.addEventListener('storage', handleSync);
-    return () => {
-      window.removeEventListener('aiu_store_updated', handleSync);
-      window.removeEventListener('storage', handleSync);
-    };
   }, []);
 
   const categories = ['Featured Only', 'Full-Stack', 'Backend', 'AI & ML'];

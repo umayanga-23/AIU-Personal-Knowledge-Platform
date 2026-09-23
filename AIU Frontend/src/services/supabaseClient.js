@@ -1,26 +1,12 @@
-/**
- * Supabase Storage Integration Service
- * Configured for direct public CV PDF uploads, bucket storage, and direct downloads
- */
+import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://aiu-portfolio.supabase.co';
-const STORAGE_BUCKET = 'cv';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ieolbhjvpvejpthyfhcp.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_h7QJwn-0iEjMEf2qAKt08w_LscXJhcT';
 
-export const supabaseStorageService = {
-  /**
-   * Generates a public Supabase Storage URL for a given file name
-   */
-  getPublicUrl(fileName) {
-    if (!fileName) return '';
-    return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${encodeURIComponent(fileName)}`;
-  },
-
-  /**
-   * Formats and sanitizes any PDF storage URL for direct, permission-free downloading
-   */
-  formatDirectPdfUrl(rawUrl) {
-    if (!rawUrl) return '';
-    // If it's a Supabase storage URL or direct blob/base64 URL, return directly
-    return rawUrl.trim();
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
-};
+});

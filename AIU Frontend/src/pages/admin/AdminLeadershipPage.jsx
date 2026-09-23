@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { leadershipService } from '../../services/leadershipService';
 import { useToast } from '../../context/ToastContext';
 import { Users, Plus, Trash2, Edit2, Building2, Calendar } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -21,10 +21,20 @@ export function AdminLeadershipPage() {
 
   const [formData, setFormData] = useState(initialFormData);
 
+  const fetchLeadership = async () => {
+    try {
+      setLoading(true);
+      const data = await leadershipService.getAll();
+      setLeadership(data || []);
+    } catch (err) {
+      addToast(err.message || 'Failed to fetch leadership records', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const store = getStore();
-    setLeadership(store.leadership || []);
-    setLoading(false);
+    fetchLeadership();
   }, []);
 
   const handleOpenCreate = () => {
@@ -49,32 +59,35 @@ export function AdminLeadershipPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this leadership role?')) {
-      const updated = leadership.filter(item => item.id !== id);
-      setLeadership(updated);
-      updateStore(s => ({ ...s, leadership: updated }));
-      addToast('Leadership role deleted successfully.', 'info');
+      try {
+        await leadershipService.delete(id);
+        const updated = leadership.filter(item => item.id !== id);
+        setLeadership(updated);
+        addToast('Leadership role deleted successfully from Supabase.', 'info');
+      } catch (err) {
+        addToast(err.message || 'Failed to delete leadership role', 'error');
+      }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    let updated;
-    if (editingId) {
-      updated = leadership.map(item => item.id === editingId ? { ...item, ...formData } : item);
-      addToast('Leadership role updated successfully!', 'success');
-    } else {
-      const newItem = {
-        id: 'lead-' + Date.now(),
-        ...formData
-      };
-      updated = [newItem, ...leadership];
-      addToast('New leadership role added successfully!', 'success');
+    try {
+      if (editingId) {
+        await leadershipService.update(editingId, formData);
+        setLeadership(leadership.map(item => item.id === editingId ? { ...item, ...formData } : item));
+        addToast('Leadership role updated successfully in Supabase PostgreSQL!', 'success');
+      } else {
+        const created = await leadershipService.create(formData);
+        setLeadership([...leadership, created]);
+        addToast('New leadership role added successfully to Supabase PostgreSQL!', 'success');
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      addToast(err.message || 'Failed to save leadership entry', 'error');
     }
-    setLeadership(updated);
-    updateStore(s => ({ ...s, leadership: updated }));
-    setIsModalOpen(false);
   };
 
   if (loading) return <LoadingState message="Loading Leadership Roles..." />;

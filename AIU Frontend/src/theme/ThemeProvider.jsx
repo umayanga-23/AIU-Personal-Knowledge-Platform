@@ -10,7 +10,7 @@ import {
   getThemeById,
   getFontById
 } from './themeConfig';
-import { getStore, updateStore } from '../services/apiClient';
+import { themeService } from '../services/themeService';
 
 const ThemeContext = createContext(null);
 
@@ -39,31 +39,28 @@ export function ThemeProvider({ children }) {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Sync saved theme configuration from store/localStorage
-  const syncFromStore = () => {
-    const store = getStore();
-    const themeData = store.theme || {};
-    const tId = themeData.themeId || DEFAULT_THEME_ID;
-    const fId = themeData.fontPresetId || DEFAULT_FONT_ID;
-    const app = themeData.appearance || DEFAULT_APPEARANCE;
+  // Sync saved theme configuration from Supabase
+  const syncFromStore = async () => {
+    try {
+      const themeData = await themeService.getTheme();
+      const tId = themeData.themeId || DEFAULT_THEME_ID;
+      const fId = themeData.fontPresetId || DEFAULT_FONT_ID;
+      const app = themeData.appearance || DEFAULT_APPEARANCE;
 
-    setSavedThemeId(tId);
-    setSavedFontId(fId);
-    setSavedAppearance(app);
+      setSavedThemeId(tId);
+      setSavedFontId(fId);
+      setSavedAppearance(app);
 
-    setPreviewThemeId(tId);
-    setPreviewFontId(fId);
-    setPreviewAppearance(app);
+      setPreviewThemeId(tId);
+      setPreviewFontId(fId);
+      setPreviewAppearance(app);
+    } catch (e) {
+      // Keep defaults gracefully
+    }
   };
 
   useEffect(() => {
     syncFromStore();
-    window.addEventListener('aiu_store_updated', syncFromStore);
-    window.addEventListener('storage', syncFromStore);
-    return () => {
-      window.removeEventListener('aiu_store_updated', syncFromStore);
-      window.removeEventListener('storage', syncFromStore);
-    };
   }, []);
 
   const activeTheme = getThemeById(previewThemeId);
@@ -176,20 +173,20 @@ export function ThemeProvider({ children }) {
     }
   };
 
-  const saveThemeChanges = () => {
+  const saveThemeChanges = async () => {
     setSavedThemeId(previewThemeId);
     setSavedFontId(previewFontId);
     setSavedAppearance(previewAppearance);
 
-    updateStore(s => ({
-      ...s,
-      theme: {
+    try {
+      await themeService.updateTheme({
         themeId: previewThemeId,
         fontPresetId: previewFontId,
-        appearance: previewAppearance,
-        updatedAt: new Date().toISOString()
-      }
-    }));
+        appearance: previewAppearance
+      });
+    } catch (e) {
+      console.warn('Failed to save theme to Supabase:', e);
+    }
   };
 
   const resetPreviewTheme = () => {
@@ -198,7 +195,7 @@ export function ThemeProvider({ children }) {
     setPreviewAppearance(savedAppearance);
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = async () => {
     const currentIndex = COLOR_THEMES.findIndex(t => t.id === previewThemeId);
     const nextIndex = (currentIndex + 1) % COLOR_THEMES.length;
     const nextThemeId = COLOR_THEMES[nextIndex].id;
@@ -211,16 +208,15 @@ export function ThemeProvider({ children }) {
     setPreviewAppearance(nextApp);
     setSavedAppearance(nextApp);
 
-    updateStore(s => ({
-      ...s,
-      theme: {
-        ...(s.theme || {}),
+    try {
+      await themeService.updateTheme({
         themeId: nextThemeId,
         fontPresetId: previewFontId,
-        appearance: nextApp,
-        updatedAt: new Date().toISOString()
-      }
-    }));
+        appearance: nextApp
+      });
+    } catch (e) {
+      console.warn('Failed to toggle theme in Supabase:', e);
+    }
   };
 
   const value = {

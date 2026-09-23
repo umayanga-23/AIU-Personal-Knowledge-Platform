@@ -37,9 +37,8 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { getStore, updateStore } from '../../services/apiClient';
+import { supabase } from '../../services/supabaseClient';
 import { analyticsService } from '../../services/analyticsService';
-import { INITIAL_DATA } from '../../data/mockData';
 import { LoadingState } from '../../components/common/LoadingState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
@@ -63,11 +62,42 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export function AdminDashboardPage() {
-  const [store, setStore] = useState(null);
+  const [telemetry, setTelemetry] = useState(null);
   const [analytics, setAnalytics] = useState(null);
 
+  const fetchDashboardData = async () => {
+    try {
+      const [
+        { data: projects },
+        { data: research },
+        { data: articles },
+        { data: technologies },
+        { data: videos },
+        { data: journey }
+      ] = await Promise.all([
+        supabase.from('projects').select('*'),
+        supabase.from('research').select('*'),
+        supabase.from('articles').select('*'),
+        supabase.from('technologies').select('*'),
+        supabase.from('videos').select('*'),
+        supabase.from('learning_journey').select('*')
+      ]);
+
+      setTelemetry({
+        projects: projects || [],
+        research: research || [],
+        articles: articles || [],
+        technologies: technologies || [],
+        videos: videos || [],
+        journey: journey || []
+      });
+    } catch (e) {
+      console.warn('Dashboard fetch error:', e);
+    }
+  };
+
   useEffect(() => {
-    setStore(getStore());
+    fetchDashboardData();
     analyticsService.getDashboardAnalytics().then(setAnalytics);
 
     // Live refresh every 8 seconds
@@ -77,14 +107,14 @@ export function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  if (!store) return <LoadingState message="Loading dashboard telemetry & analytics..." />;
+  if (!telemetry) return <LoadingState message="Loading dashboard telemetry & analytics..." />;
 
-  const projectsList = store.projects || [];
-  const researchList = store.research || [];
-  const articlesList = store.articles || [];
-  const techList = store.technologies || [];
-  const videosList = store.videos || [];
-  const journeyList = store.journey || [];
+  const projectsList = telemetry.projects;
+  const researchList = telemetry.research;
+  const articlesList = telemetry.articles;
+  const techList = telemetry.technologies;
+  const videosList = telemetry.videos;
+  const journeyList = telemetry.journey;
 
   const publishedProjects = projectsList.filter(p => p.status === 'PUBLISHED').length;
   const draftProjects = projectsList.filter(p => p.status === 'DRAFT').length;
@@ -146,20 +176,16 @@ export function AdminDashboardPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
-              if (window.confirm('Clear all cached mock entries and reset store to clean state?')) {
-                localStorage.removeItem('aiu_platform_store');
-                updateStore(() => ({ ...INITIAL_DATA }));
-                setStore({ ...INITIAL_DATA });
-                if (typeof window !== 'undefined') window.location.reload();
-              }
+              fetchDashboardData();
+              analyticsService.getDashboardAnalytics().then(setAnalytics);
             }}
-            className="px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5"
-            title="Clear old cached mock items"
+            className="px-3.5 py-1.5 rounded-full bg-cyan/10 border border-cyan/30 text-cyan hover:bg-cyan/20 text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5"
+            title="Refresh database telemetry"
           >
-            <Sparkles className="w-3.5 h-3.5" /> Reset Store to Clean State
+            <Activity className="w-3.5 h-3.5" /> Refresh Live Telemetry
           </button>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
-            <Activity className="w-4 h-4 animate-pulse" /> Live Supabase Telemetry Active
+            <Activity className="w-4 h-4 animate-pulse" /> Live Supabase PostgreSQL Active
           </div>
         </div>
       </div>

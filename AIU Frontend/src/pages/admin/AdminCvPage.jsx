@@ -4,7 +4,6 @@ import { FileUpload } from '../../components/common/FileUpload';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingState } from '../../components/common/LoadingState';
 import { useToast } from '../../context/ToastContext';
-import { pdfStorage } from '../../utils/pdfStorage';
 import { FileCheck, Upload, CheckCircle2, RefreshCw, Link2, Download, FileText, Info } from 'lucide-react';
 
 export function AdminCvPage() {
@@ -20,21 +19,11 @@ export function AdminCvPage() {
   const fetchCv = async () => {
     try {
       setLoading(true);
-      const data = await cvService.getAdminCv();
-      let activeCv = data;
-
-      // Hydrate from IndexedDB if base64 file is persisted locally
-      if (activeCv && activeCv.fileUrl === 'PERSISTED_IN_INDEXEDDB') {
-        const persistedData = await pdfStorage.getPdf('active_cv');
-        if (persistedData) {
-          activeCv = { ...activeCv, fileUrl: persistedData };
-        }
-      }
-
+      const activeCv = await cvService.getAdminCv();
       setCurrentCv(activeCv);
       if (activeCv) {
         setVersionInput(activeCv.version || 'v2.5');
-        setUrlInput(activeCv.fileUrl && !activeCv.fileUrl.startsWith('data:') ? activeCv.fileUrl : '');
+        setUrlInput(activeCv.fileUrl || '');
         setSummaryInput(activeCv.summary || 'Induwara Umayanga Alukirthi CV - IT Undergraduate at University of Moratuwa');
       }
     } catch (err) {
@@ -48,15 +37,6 @@ export function AdminCvPage() {
     fetchCv();
   }, []);
 
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (err) => reject(err);
-    });
-  };
-
   const handleUploadAndPublish = async (e) => {
     e.preventDefault();
 
@@ -68,31 +48,26 @@ export function AdminCvPage() {
     try {
       setUploading(true);
 
-      let finalFileUrl = currentCv?.fileUrl || '';
-
       if (uploadedFile) {
-        finalFileUrl = await fileToBase64(uploadedFile);
-        // Persist large base64 file directly in IndexedDB to prevent LocalStorage quota limits
-        await pdfStorage.savePdf('active_cv', finalFileUrl, { fileName: uploadedFile.name });
-      } else if (urlInput.trim()) {
-        finalFileUrl = urlInput.trim();
-        await pdfStorage.savePdf('active_cv', finalFileUrl, { url: finalFileUrl });
+        addToast(`Uploading ${uploadedFile.name} to Supabase Storage 'cv' bucket...`, 'info');
+        const newCv = await cvService.uploadAndPublishCv(uploadedFile, {
+          version: versionInput || 'v2.5',
+          summary: summaryInput || currentCv?.summary
+        });
+        setCurrentCv(newCv);
+        setUploadedFile(null);
+        addToast('New CV uploaded to Supabase Storage and published successfully!', 'success');
+      } else {
+        const updated = await cvService.updateCvMetadata({
+          version: versionInput || 'v2.5',
+          summary: summaryInput,
+          fileUrl: urlInput.trim() || currentCv?.fileUrl,
+          fileName: currentCv?.fileName || 'Induwara_Umayanga_CV.pdf',
+          status: 'PUBLISHED'
+        });
+        setCurrentCv(updated);
+        addToast('CV metadata updated successfully in Supabase PostgreSQL!', 'success');
       }
-
-      const payload = {
-        version: versionInput || 'v2.5',
-        fileName: uploadedFile ? uploadedFile.name : (currentCv?.fileName || 'Induwara_Umayanga_Alukirthi_CV.pdf'),
-        fileSize: uploadedFile ? `${(uploadedFile.size / 1024).toFixed(1)} KB` : (currentCv?.fileSize || '280 KB'),
-        fileUrl: finalFileUrl,
-        summary: summaryInput || currentCv?.summary,
-        lastUpdated: new Date().toISOString().split('T')[0],
-        status: 'PUBLISHED'
-      };
-
-      const newCv = await cvService.uploadNewCv(payload);
-      setCurrentCv({ ...newCv, fileUrl: finalFileUrl });
-      setUploadedFile(null);
-      addToast('New CV published successfully! Public site synced in real-time.', 'success');
     } catch (err) {
       addToast(err.message || 'CV publish failed', 'error');
     } finally {
@@ -105,7 +80,13 @@ export function AdminCvPage() {
       addToast('No active CV file available for download', 'error');
       return;
     }
-    pdfStorage.triggerDownload(currentCv.fileUrl, currentCv.fileName);
+    const a = document.createElement('a');
+    a.href = currentCv.fileUrl;
+    a.download = currentCv.fileName || 'Induwara_Umayanga_Alukirthi_CV.pdf';
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     addToast(`Downloading ${currentCv.fileName}...`, 'info');
   };
 

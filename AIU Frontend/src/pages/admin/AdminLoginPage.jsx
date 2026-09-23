@@ -6,7 +6,7 @@ import { useToast } from '../../context/ToastContext';
 
 export function AdminLoginPage() {
   const [username, setUsername] = useState('induwaraumayangaz04@gmail.com');
-  const [password, setPassword] = useState('Azind2003##');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -93,12 +93,6 @@ export function AdminLoginPage() {
                 {loading ? 'Authenticating...' : 'Sign In as Admin'}
               </button>
             </form>
-
-            <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl text-center space-y-1">
-              <p className="text-[11px] font-mono text-slate-400 font-bold">Admin Account Credentials:</p>
-              <p className="text-[11px] font-mono text-cyan truncate">Email: <span className="text-slate-200">induwaraumayangaz04@gmail.com</span></p>
-              <p className="text-[11px] font-mono text-cyan">Password: <span className="text-slate-200">Azind2003##</span></p>
-            </div>
           </>
         ) : (
           /* Success Destination Selection Gateway Screen */

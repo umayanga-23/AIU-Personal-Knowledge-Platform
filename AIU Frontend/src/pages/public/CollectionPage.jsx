@@ -4,34 +4,53 @@ import { ResearchCard } from '../../components/cards/ResearchCard';
 import { ArticleCard } from '../../components/cards/ArticleCard';
 import { TechnologyCard } from '../../components/cards/TechnologyCard';
 import { LoadingState } from '../../components/common/LoadingState';
-import { getStore } from '../../services/apiClient';
+import { ErrorState } from '../../components/common/ErrorState';
+import { researchService } from '../../services/researchService';
+import { articleService } from '../../services/articleService';
 
 export function CollectionPage() {
   const [activeTab, setActiveTab] = useState('research'); // 'research' | 'articles'
-  const [store, setStore] = useState(null);
+  const [researchList, setResearchList] = useState([]);
+  const [articlesList, setArticlesList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [res, art] = await Promise.all([
+        researchService.getAllPublic(),
+        articleService.getAllPublic()
+      ]);
+      setResearchList(res || []);
+      setArticlesList(art || []);
+    } catch (err) {
+      console.error('Failed to load collection:', err);
+      setError(err.message || 'Unable to load collection data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const data = getStore();
-    setStore(data);
-    setLoading(false);
+    loadData();
   }, []);
 
-  if (loading || !store) return <LoadingState message="Loading Collection..." />;
+  if (loading) return <LoadingState message="Loading Collection..." />;
+  if (error) return <ErrorState message={error} onRetry={loadData} />;
 
-  const filteredResearch = store.research.filter(r =>
-    r.status === 'PUBLISHED' &&
-    (r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     r.abstract.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     r.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())))
+  const filteredResearch = researchList.filter(r =>
+    (r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     r.abstract?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     r.tags?.some(t => t?.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
-  const filteredArticles = store.articles.filter(a =>
-    a.status === 'PUBLISHED' &&
-    (a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     a.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     a.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase())))
+  const filteredArticles = articlesList.filter(a =>
+    (a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     a.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     a.tags?.some(t => t?.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
   return (

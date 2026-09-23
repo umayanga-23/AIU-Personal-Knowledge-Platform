@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { researchService } from '../../services/researchService';
-import { Plus, Edit2, Trash2, Eye, EyeOff, FileText } from 'lucide-react';
+import { mediaService } from '../../services/mediaService';
+import { Plus, Edit2, Trash2, Eye, EyeOff, FileText, Upload } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CharCounter, UrlValidator } from '../../components/common/FormValidationFeedback';
 import { Modal } from '../../components/common/Modal';
@@ -11,6 +12,7 @@ import { LoadingState } from '../../components/common/LoadingState';
 export function AdminResearchPage() {
   const [researchList, setResearchList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const { addToast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,6 +81,21 @@ export function AdminResearchPage() {
       featured: !!item.featured
     });
     setIsModalOpen(true);
+  };
+
+  const handleUploadPdf = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingPdf(true);
+      const res = await mediaService.uploadFile('research', file, 'pdf');
+      setForm((prev) => ({ ...prev, documentUrl: res.url }));
+      addToast('Research paper PDF uploaded to Supabase Storage!', 'success');
+    } catch (err) {
+      addToast(err.message || 'PDF upload failed', 'error');
+    } finally {
+      setUploadingPdf(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -259,7 +276,20 @@ export function AdminResearchPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-mono text-typo-secondary mb-1">Document PDF URL</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-mono text-typo-secondary">Document PDF</label>
+              <label className="cursor-pointer text-xs font-mono text-cyan hover:underline flex items-center gap-1">
+                <Upload className="w-3 h-3" />
+                {uploadingPdf ? 'Uploading to Supabase...' : 'Upload PDF'}
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleUploadPdf}
+                  disabled={uploadingPdf}
+                  className="hidden"
+                />
+              </label>
+            </div>
             <input
               type="url"
               value={form.documentUrl}

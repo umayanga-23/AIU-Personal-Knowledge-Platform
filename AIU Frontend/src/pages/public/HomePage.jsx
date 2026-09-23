@@ -13,33 +13,81 @@ import { ArticlesSection } from '../../components/home/ArticlesSection';
 import { ContactSection } from '../../components/home/ContactSection';
 import { ProjectCard } from '../../components/cards/ProjectCard';
 import { LoadingState } from '../../components/common/LoadingState';
-import { getStore } from '../../services/apiClient';
+import { ErrorState } from '../../components/common/ErrorState';
 import { SeoHead } from '../../components/common/SeoHead';
+import { profileService } from '../../services/profileService';
+import { skillService } from '../../services/skillService';
+import { educationService } from '../../services/educationService';
+import { journeyService } from '../../services/journeyService';
+import { projectService } from '../../services/projectService';
+import { awardService } from '../../services/awardService';
+import { leadershipService } from '../../services/leadershipService';
+import { researchService } from '../../services/researchService';
+import { articleService } from '../../services/articleService';
+import { technologyService } from '../../services/technologyService';
 
 export function HomePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [
+        profile,
+        skills,
+        education,
+        journey,
+        projects,
+        awards,
+        leadership,
+        research,
+        articles,
+        technologies
+      ] = await Promise.all([
+        profileService.get(),
+        skillService.getAll(),
+        educationService.getAll(),
+        journeyService.getAll(),
+        projectService.getAllPublic(),
+        awardService.getAll(),
+        leadershipService.getAll(),
+        researchService.getAllPublic(),
+        articleService.getAllPublic(),
+        technologyService.getAllPublic()
+      ]);
+
+      setData({
+        profile: profile || {},
+        skills: skills || [],
+        education: education || [],
+        journey: journey || [],
+        projects: projects || [],
+        awards: awards || [],
+        leadership: leadership || [],
+        research: research || [],
+        articles: articles || [],
+        technologies: technologies || []
+      });
+    } catch (err) {
+      console.error('Failed to load portfolio homepage data:', err);
+      setError(err.message || 'Unable to connect to Supabase database. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const syncData = () => {
-      const store = getStore();
-      setData({ ...store });
-      setLoading(false);
-    };
-
-    syncData();
-
-    window.addEventListener('aiu_store_updated', syncData);
-    window.addEventListener('storage', syncData);
-    return () => {
-      window.removeEventListener('aiu_store_updated', syncData);
-      window.removeEventListener('storage', syncData);
-    };
+    loadData();
   }, []);
 
-  if (loading || !data) return <LoadingState message="Loading Knowledge Platform..." />;
+  if (loading) return <LoadingState message="Loading Knowledge Platform..." />;
+  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (!data) return null;
 
-  const featuredProjects = data.projects.filter(p => p.status === 'PUBLISHED').slice(0, 3);
+  const featuredProjects = (data.projects || []).slice(0, 3);
 
   return (
     <div className="space-y-0 font-sans">

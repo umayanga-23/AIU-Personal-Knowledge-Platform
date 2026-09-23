@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { articleService } from '../../services/articleService';
 import { technologyService } from '../../services/technologyService';
-import { getStore } from '../../services/apiClient';
 import { ArticleCard } from '../../components/cards/ArticleCard';
 import { SearchBar } from '../../components/common/SearchBar';
 import { FilterBar } from '../../components/common/FilterBar';
@@ -46,23 +45,15 @@ export function KnowledgePage() {
       setLoading(true);
       setError(null);
       const [artData, techData] = await Promise.all([
-        articleService.getAllPublic().catch(() => null),
-        technologyService.getAllPublic().catch(() => null)
+        articleService.getAllPublic(),
+        technologyService.getAllPublic()
       ]);
 
-      const rawArt = Array.isArray(artData) ? artData : (artData?.data?.content || artData?.data || artData?.content || null);
-      const rawTech = Array.isArray(techData) ? techData : (techData?.data?.content || techData?.data || techData?.content || null);
-
-      const store = getStore();
-      const finalArt = (rawArt && rawArt.length > 0) ? rawArt : (store?.articles || []);
-      const finalTech = (rawTech && rawTech.length > 0) ? rawTech : (store?.technologies || []);
-
-      setArticles(finalArt);
-      setTechnologies(finalTech);
+      setArticles(artData || []);
+      setTechnologies(techData || []);
     } catch (err) {
-      const store = getStore();
-      setArticles(store?.articles || []);
-      setTechnologies(store?.technologies || []);
+      console.error('Failed to load articles:', err);
+      setError(err.message || 'Unable to retrieve knowledge articles from database.');
     } finally {
       setLoading(false);
     }
@@ -70,13 +61,6 @@ export function KnowledgePage() {
 
   useEffect(() => {
     loadData();
-    const handleSync = () => loadData();
-    window.addEventListener('aiu_store_updated', handleSync);
-    window.addEventListener('storage', handleSync);
-    return () => {
-      window.removeEventListener('aiu_store_updated', handleSync);
-      window.removeEventListener('storage', handleSync);
-    };
   }, []);
 
   const filteredArticles = useMemo(() => {

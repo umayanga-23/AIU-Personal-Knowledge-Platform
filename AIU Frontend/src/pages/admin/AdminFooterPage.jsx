@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { footerService } from '../../services/footerService';
 import { useToast } from '../../context/ToastContext';
 import { LayoutTemplate, Save, Github, Linkedin, Youtube, Twitter, ShieldAlert } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -21,33 +21,45 @@ export function AdminFooterPage() {
     twitterUrl: ''
   });
 
+  const fetchFooter = async () => {
+    try {
+      setLoading(true);
+      const f = await footerService.getFooter();
+      if (f) {
+        setForm({
+          brandName: f.brandName || 'Induwara Umayanga Alukirthi',
+          tagline: f.tagline || 'Personal knowledge platform, research showcase, technical notes, and system engineering profile.',
+          statusText: f.statusText || 'All systems operational',
+          statusType: f.statusType || 'OPERATIONAL',
+          copyrightText: f.copyrightText || `© ${new Date().getFullYear()} Induwara Umayanga Alukirthi. All rights reserved.`,
+          githubUrl: f.githubUrl || 'https://github.com/umayanga-23',
+          linkedinUrl: f.linkedinUrl || 'https://www.linkedin.com/in/induwara-umayanga',
+          youtubeUrl: f.youtubeUrl || 'https://youtube.com',
+          twitterUrl: f.twitterUrl || 'https://twitter.com'
+        });
+      }
+    } catch (err) {
+      addToast(err.message || 'Failed to load footer', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const store = getStore();
-    const f = store.footer || {};
-    const p = store.profile || {};
-    setForm({
-      brandName: f.brandName || p.name || 'Induwara Umayanga Alukirthi',
-      tagline: f.tagline || 'Personal knowledge platform, research showcase, technical notes, and system engineering profile.',
-      statusText: f.statusText || 'All systems operational',
-      statusType: f.statusType || 'OPERATIONAL',
-      copyrightText: f.copyrightText || `© ${new Date().getFullYear()} Induwara Umayanga Alukirthi. All rights reserved.`,
-      githubUrl: f.githubUrl || p.github || 'https://github.com/Rjkl003CR',
-      linkedinUrl: f.linkedinUrl || p.linkedin || 'https://www.linkedin.com/in/chamathka-ranathunga-a825922aa',
-      youtubeUrl: f.youtubeUrl || p.youtube || 'https://youtube.com',
-      twitterUrl: f.twitterUrl || p.twitter || 'https://twitter.com'
-    });
-    setLoading(false);
+    fetchFooter();
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
-    updateStore(s => ({
-      ...s,
-      footer: { ...form }
-    }));
-    addToast('Footer configuration saved successfully!', 'success');
-    setSaving(false);
+    try {
+      setSaving(true);
+      await footerService.updateFooter(form);
+      addToast('Footer configuration saved successfully to Supabase PostgreSQL!', 'success');
+    } catch (err) {
+      addToast(err.message || 'Failed to save footer to database', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <LoadingState message="Loading Footer configuration..." />;

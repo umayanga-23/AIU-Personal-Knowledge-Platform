@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Code2, BookOpen, Layers, Video, FileText, ArrowRight, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getStore } from '../../services/apiClient';
+import { projectService } from '../../services/projectService';
+import { researchService } from '../../services/researchService';
+import { articleService } from '../../services/articleService';
+import { technologyService } from '../../services/technologyService';
+import { videoService } from '../../services/videoService';
 
 export function GlobalSearchModal({ isOpen, onClose }) {
   const [query, setQuery] = useState('');
@@ -9,41 +13,54 @@ export function GlobalSearchModal({ isOpen, onClose }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
     if (!query.trim()) {
       setResults({ projects: [], research: [], articles: [], technologies: [], videos: [] });
       return;
     }
 
     const q = query.toLowerCase();
-    const store = getStore();
 
-    const matchedProjects = store.projects.filter(p => 
-      p.status === 'PUBLISHED' && (p.title.toLowerCase().includes(q) || p.shortDescription.toLowerCase().includes(q))
-    ).slice(0, 3);
+    Promise.all([
+      projectService.getAllPublic().catch(() => []),
+      researchService.getAllPublic().catch(() => []),
+      articleService.getAllPublic().catch(() => []),
+      technologyService.getAllPublic().catch(() => []),
+      videoService.getAllPublic().catch(() => [])
+    ]).then(([projects, research, articles, technologies, videos]) => {
+      if (!active) return;
+      const matchedProjects = (projects || []).filter(p => 
+        (p.title?.toLowerCase().includes(q) || p.shortDescription?.toLowerCase().includes(q))
+      ).slice(0, 3);
 
-    const matchedResearch = store.research.filter(r => 
-      r.status === 'PUBLISHED' && (r.title.toLowerCase().includes(q) || r.abstract.toLowerCase().includes(q))
-    ).slice(0, 3);
+      const matchedResearch = (research || []).filter(r => 
+        (r.title?.toLowerCase().includes(q) || r.abstract?.toLowerCase().includes(q))
+      ).slice(0, 3);
 
-    const matchedArticles = store.articles.filter(a => 
-      a.status === 'PUBLISHED' && (a.title.toLowerCase().includes(q) || a.excerpt.toLowerCase().includes(q))
-    ).slice(0, 3);
+      const matchedArticles = (articles || []).filter(a => 
+        (a.title?.toLowerCase().includes(q) || a.excerpt?.toLowerCase().includes(q))
+      ).slice(0, 3);
 
-    const matchedTechnologies = store.technologies.filter(t => 
-      t.name.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
-    ).slice(0, 3);
+      const matchedTechnologies = (technologies || []).filter(t => 
+        (t.name?.toLowerCase().includes(q) || t.category?.toLowerCase().includes(q))
+      ).slice(0, 3);
 
-    const matchedVideos = store.videos.filter(v => 
-      v.title.toLowerCase().includes(q) || v.description.toLowerCase().includes(q)
-    ).slice(0, 3);
+      const matchedVideos = (videos || []).filter(v => 
+        (v.title?.toLowerCase().includes(q) || v.description?.toLowerCase().includes(q))
+      ).slice(0, 3);
 
-    setResults({
-      projects: matchedProjects,
-      research: matchedResearch,
-      articles: matchedArticles,
-      technologies: matchedTechnologies,
-      videos: matchedVideos
+      setResults({
+        projects: matchedProjects,
+        research: matchedResearch,
+        articles: matchedArticles,
+        technologies: matchedTechnologies,
+        videos: matchedVideos
+      });
     });
+
+    return () => {
+      active = false;
+    };
   }, [query]);
 
   const handleSelect = (path) => {

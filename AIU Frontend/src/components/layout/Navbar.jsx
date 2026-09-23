@@ -2,23 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Sun, Moon, Palette, ShieldAlert, Menu, X, Terminal, LogOut } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { apiClient } from '../../services/apiClient';
+import { authService } from '../../services/authService';
 
 export function Navbar() {
   const { theme, activeTheme, toggleTheme } = useTheme();
   const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(() => authService.isAuthorizedAdminSync());
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(() => apiClient.isAuthenticated());
 
   useEffect(() => {
-    const syncAuth = () => {
-      setIsAdmin(apiClient.isAuthenticated());
-    };
-    window.addEventListener('aiu_auth_changed', syncAuth);
-    window.addEventListener('storage', syncAuth);
+    let mounted = true;
+    authService.isAuthorizedAdmin().then((auth) => {
+      if (mounted) setIsAdmin(auth);
+    });
+
+    const unsub = authService.subscribe(async () => {
+      const auth = await authService.isAuthorizedAdmin();
+      if (mounted) setIsAdmin(auth);
+    });
     return () => {
-      window.removeEventListener('aiu_auth_changed', syncAuth);
-      window.removeEventListener('storage', syncAuth);
+      mounted = false;
+      unsub?.();
     };
   }, []);
 

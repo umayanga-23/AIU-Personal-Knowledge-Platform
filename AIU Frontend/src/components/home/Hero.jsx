@@ -1,26 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Code2, Download, Github, Linkedin, Mail, ArrowRight, ShieldCheck, BookOpen, FileText } from 'lucide-react';
-import { pdfStorage } from '../../utils/pdfStorage';
 import { formatImageUrl } from '../../utils/formValidation';
 
 export function Hero({ profile, onCvClick }) {
-  const handleCvDownload = async (e) => {
-    e.preventDefault();
+  const handleCvDownload = (e) => {
     if (onCvClick) onCvClick();
-    let cvUrl = profile?.cv?.fileUrl || profile?.cvUrl;
-
-    if (!cvUrl || cvUrl === 'PERSISTED_IN_INDEXEDDB') {
-      const persistedData = await pdfStorage.getPdf('active_cv');
-      if (persistedData) cvUrl = persistedData;
+    const cvUrl = profile?.cv?.fileUrl || profile?.cvUrl;
+    if (cvUrl) {
+      const link = document.createElement('a');
+      link.href = cvUrl;
+      link.download = profile?.cv?.fileName || "Induwara_Umayanga_Alukirthi_CV.pdf";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-
-    if (!cvUrl) {
-      cvUrl = "https://aiu-portfolio.supabase.co/storage/v1/object/public/cv/Induwara_Umayanga_Alukirthi_CV.pdf";
-    }
-
-    const fileName = profile?.cv?.fileName || "Induwara_Umayanga_Alukirthi_CV.pdf";
-    pdfStorage.triggerDownload(cvUrl, fileName);
   };
   return (
     <section id="hero" className="relative pt-16 pb-24 overflow-hidden bg-mesh-glow">

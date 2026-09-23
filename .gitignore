@@ -1,8 +1,11 @@
-# Environment Secrets
+# Environment Secrets & Local Data
 .env
 .env.local
 .env.*
 !.env.example
+supabase_backup.json
+scripts/
+AIU Frontend/scripts/
 
 # Node / Frontend
 node_modules

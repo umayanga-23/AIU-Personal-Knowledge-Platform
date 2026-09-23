@@ -2,31 +2,9 @@ import React from 'react';
 import { Users, ShieldCheck } from 'lucide-react';
 
 export function LeadershipSection({ leadership }) {
-  const defaultLeadership = [
-    {
-      id: "lead-1",
-      title: "Main Batch Representative",
-      organization: "Batch '23, Faculty of Information Technology",
-      year: "2025 - 2026",
-      description: "Represented 200+ students and actively coordinated with faculty on academic concerns and curriculum feedback."
-    },
-    {
-      id: "lead-2",
-      title: "HR Pillar Member",
-      organization: "FIT MOMENT, IT Faculty Media Unit",
-      year: "2025 - Present",
-      description: "Managed recruitment pipelines for 15+ events and effectively coordinated tasks for 30+ team members."
-    },
-    {
-      id: "lead-3",
-      title: "Program & Event Coordination",
-      organization: "IEEE WIE Student Branch Affinity Group",
-      year: "2026 - Present",
-      description: "Organized technical workshops and skill-building sessions reaching 100+ attendees."
-    }
-  ];
+  const leadList = Array.isArray(leadership) ? leadership : [];
 
-  const leadList = leadership && leadership.length > 0 ? leadership : defaultLeadership;
+  if (leadList.length === 0) return null;
 
   return (
     <section id="leadership" className="py-20 border-t border-obsidian-border bg-obsidian-secondary/50">

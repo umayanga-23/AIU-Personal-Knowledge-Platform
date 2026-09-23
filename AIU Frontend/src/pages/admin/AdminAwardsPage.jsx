@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { awardService } from '../../services/awardService';
+import { mediaService } from '../../services/mediaService';
 import { useToast } from '../../context/ToastContext';
 import { Award, Plus, Trash2, Edit2, Image, ExternalLink, Building2, FileText, Eye, X } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -7,7 +8,6 @@ import { Modal } from '../../components/common/Modal';
 import { UrlValidator, ImagePreviewCard } from '../../components/common/FormValidationFeedback';
 import { FileUpload } from '../../components/common/FileUpload';
 import { formatImageUrl } from '../../utils/formValidation';
-import { pdfStorage } from '../../utils/pdfStorage';
 
 export function AdminAwardsPage() {
   const [awards, setAwards] = useState([]);
@@ -30,33 +30,10 @@ export function AdminAwardsPage() {
   const fetchAwards = async () => {
     try {
       setLoading(true);
-      const store = getStore();
-      let awardsList = store.awards || [];
-
-      // Hydrate heavy PDF/Image Base64 files from IndexedDB
-      const hydrated = await Promise.all(
-        awardsList.map(async (item) => {
-          let img = item.imageUrl;
-          let cred = item.credentialUrl;
-
-          if (img === 'PERSISTED_IN_INDEXEDDB') {
-            const dbImg = await pdfStorage.getPdf('award_img_' + item.id);
-            if (dbImg) img = dbImg;
-          }
-          if (cred === 'PERSISTED_IN_INDEXEDDB') {
-            const dbCred = await pdfStorage.getPdf('award_cred_' + item.id);
-            if (dbCred) cred = dbCred;
-          }
-
-          return { ...item, imageUrl: img, credentialUrl: cred };
-        })
-      );
-
-      setAwards(hydrated);
+      const data = await awardService.getAll();
+      setAwards(data || []);
     } catch (err) {
-      console.warn('Failed to hydrate awards from IndexedDB:', err);
-      const store = getStore();
-      setAwards(store.awards || []);
+      addToast(err.message || 'Failed to fetch awards', 'error');
     } finally {
       setLoading(false);
     }
@@ -109,54 +86,35 @@ export function AdminAwardsPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = async (item) => {
+  const handleOpenEdit = (item) => {
     setEditingId(item.id);
-
-    let img = item.imageUrl;
-    let cred = item.credentialUrl;
-
-    if (img === 'PERSISTED_IN_INDEXEDDB') {
-      const dbImg = await pdfStorage.getPdf('award_img_' + item.id);
-      if (dbImg) img = dbImg;
-    }
-    if (cred === 'PERSISTED_IN_INDEXEDDB') {
-      const dbCred = await pdfStorage.getPdf('award_cred_' + item.id);
-      if (dbCred) cred = dbCred;
-    }
-
     setFormData({
       title: item.title || '',
       issuer: item.issuer || '',
       year: item.year || '',
-      imageUrl: img || '',
-      credentialUrl: cred || ''
+      imageUrl: item.imageUrl || '',
+      credentialUrl: item.credentialUrl || ''
     });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this award entry?')) {
-      const updated = awards.filter(item => item.id !== id);
-      setAwards(updated);
-      updateStore(s => ({ ...s, awards: updated }));
-      addToast('Award entry deleted successfully.', 'info');
+      try {
+        await awardService.delete(id);
+        const updated = awards.filter(item => item.id !== id);
+        setAwards(updated);
+        addToast('Award entry deleted successfully from Supabase!', 'info');
+      } catch (err) {
+        addToast(err.message || 'Failed to delete award', 'error');
+      }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const itemId = editingId || ('award-' + Date.now());
-
-      if (formData.imageUrl && formData.imageUrl.startsWith('data:')) {
-        await pdfStorage.savePdf('award_img_' + itemId, formData.imageUrl);
-      }
-      if (formData.credentialUrl && formData.credentialUrl.startsWith('data:')) {
-        await pdfStorage.savePdf('award_cred_' + itemId, formData.credentialUrl);
-      }
-
       const payload = {
-        id: itemId,
         title: formData.title.trim(),
         issuer: formData.issuer.trim(),
         year: formData.year.trim(),
@@ -164,21 +122,20 @@ export function AdminAwardsPage() {
         credentialUrl: formData.credentialUrl
       };
 
-      let updated;
       if (editingId) {
-        updated = awards.map(item => item.id === editingId ? { ...item, ...payload } : item);
-        addToast('Award entry updated successfully!', 'success');
+        await awardService.update(editingId, payload);
+        setAwards(awards.map(item => item.id === editingId ? { ...item, ...payload } : item));
+        addToast('Award entry updated successfully in Supabase PostgreSQL!', 'success');
       } else {
-        updated = [payload, ...awards];
-        addToast('New award entry added successfully!', 'success');
+        const created = await awardService.create(payload);
+        setAwards([created, ...awards]);
+        addToast('New award entry added successfully to Supabase PostgreSQL!', 'success');
       }
 
-      setAwards(updated);
-      updateStore(s => ({ ...s, awards: updated }));
       setIsModalOpen(false);
     } catch (err) {
       console.error('Error saving award entry:', err);
-      addToast('Failed to save award entry. Please try again.', 'error');
+      addToast(err.message || 'Failed to save award entry. Please try again.', 'error');
     }
   };
 
@@ -334,18 +291,14 @@ export function AdminAwardsPage() {
               maxSizeMB={10}
               onFileSelect={async (file) => {
                 if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const base64Data = reader.result;
-                  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-                    setFormData(prev => ({ ...prev, credentialUrl: base64Data, imageUrl: base64Data }));
-                    addToast(`Selected PDF Certificate: ${file.name}`, 'info');
-                  } else {
-                    setFormData(prev => ({ ...prev, imageUrl: base64Data }));
-                    addToast(`Selected Certificate Image: ${file.name}`, 'info');
-                  }
-                };
-                reader.readAsDataURL(file);
+                try {
+                  addToast(`Uploading ${file.name} to Supabase Storage...`, 'info');
+                  const { publicUrl } = await mediaService.uploadFile('awards', file, 'certificates');
+                  setFormData(prev => ({ ...prev, imageUrl: publicUrl, credentialUrl: publicUrl }));
+                  addToast('Certificate uploaded to Supabase Storage successfully!', 'success');
+                } catch (e) {
+                  addToast(e.message || 'Storage upload failed', 'error');
+                }
               }}
             />
             <div>

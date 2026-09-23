@@ -1,38 +1,90 @@
-import { apiClient } from './apiClient';
+import { supabase } from './supabaseClient';
 
 export const videoService = {
-  extractYouTubeId(url) {
-    if (!url) return '';
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : url;
+  async getAllPublic() {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return (data || []).map(this.mapFromDb);
   },
 
-  getAllPublic() {
-    return apiClient.get('/public/videos');
+  async getAllAdmin() {
+    return this.getAllPublic();
   },
 
-  getAllAdmin() {
-    return apiClient.get('/admin/videos');
+  async create(videoData) {
+    const id = videoData.id || 'vid-' + Date.now();
+    const payload = this.mapToDb({ ...videoData, id });
+
+    const { data, error } = await supabase
+      .from('videos')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return this.mapFromDb(data);
   },
 
-  create(data) {
-    const formatted = {
-      ...data,
-      youtubeId: this.extractYouTubeId(data.youtubeUrl || data.youtubeId)
+  async update(id, videoData) {
+    const payload = this.mapToDb(videoData);
+    delete payload.id;
+
+    const { data, error } = await supabase
+      .from('videos')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return this.mapFromDb(data);
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('videos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    return true;
+  },
+
+  mapFromDb(row) {
+    return {
+      id: row.id,
+      title: row.title,
+      youtubeId: row.youtube_id || '',
+      youtubeUrl: row.youtube_url || (row.youtube_id ? `https://www.youtube.com/watch?v=${row.youtube_id}` : ''),
+      description: row.description || '',
+      publishDate: row.publish_date || '',
+      relatedProject: row.related_project || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
-    return apiClient.post('/admin/videos', formatted);
   },
 
-  update(id, data) {
-    const formatted = {
-      ...data,
-      youtubeId: this.extractYouTubeId(data.youtubeUrl || data.youtubeId)
+  mapToDb(data) {
+    let ytId = data.youtubeId || '';
+    if (!ytId && data.youtubeUrl) {
+      const match = data.youtubeUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (match) ytId = match[1];
+    }
+
+    return {
+      id: data.id,
+      title: data.title,
+      youtube_id: ytId,
+      youtube_url: data.youtubeUrl,
+      description: data.description,
+      publish_date: data.publishDate,
+      related_project: data.relatedProject,
+      updated_at: new Date().toISOString()
     };
-    return apiClient.put(`/admin/videos/${id}`, formatted);
-  },
-
-  delete(id) {
-    return apiClient.delete(`/admin/videos/${id}`);
   }
 };

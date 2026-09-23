@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { researchService } from '../../services/researchService';
-import { getStore } from '../../services/apiClient';
+import { projectService } from '../../services/projectService';
 import { ArrowLeft, ExternalLink, Calendar, Users, Code2 } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -13,44 +13,38 @@ export function ResearchDetailPage() {
   const [paper, setPaper] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [store, setStore] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
 
   useEffect(() => {
+    let active = true;
     const fetchPaper = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await researchService.getBySlug(slug).catch(() => null);
-        const storeData = getStore();
-        const finalPaper = data || storeData?.research.find(r => r.slug === slug || r.id === slug);
-        setPaper(finalPaper);
-        setStore(storeData);
+        const [data, projects] = await Promise.all([
+          researchService.getBySlug(slug),
+          projectService.getAllPublic().catch(() => [])
+        ]);
+        if (!active) return;
+        setPaper(data);
+        setAllProjects(projects || []);
       } catch (err) {
-        const storeData = getStore();
-        const fallback = storeData?.research.find(r => r.slug === slug || r.id === slug);
-        if (fallback) {
-          setPaper(fallback);
-          setStore(storeData);
-        } else {
-          setError(err.message || 'Research paper not found');
-        }
+        if (active) setError(err.message || 'Research paper not found');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchPaper();
-    window.addEventListener('aiu_store_updated', fetchPaper);
-    window.addEventListener('storage', fetchPaper);
+
     return () => {
-      window.removeEventListener('aiu_store_updated', fetchPaper);
-      window.removeEventListener('storage', fetchPaper);
+      active = false;
     };
   }, [slug]);
 
   if (loading) return <LoadingState message="Loading publication details..." />;
   if (error || !paper) return <ErrorState message={error || 'Research paper not found'} />;
 
-  const relatedProjectsList = store?.projects.filter(p => paper.relatedProjects?.includes(p.id) && p.status === 'PUBLISHED') || [];
+  const relatedProjectsList = allProjects.filter(p => paper.relatedProjects?.includes(p.id)) || [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">

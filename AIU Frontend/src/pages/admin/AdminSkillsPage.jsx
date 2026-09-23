@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { skillService } from '../../services/skillService';
 import { useToast } from '../../context/ToastContext';
 import {
   Wrench,
@@ -36,6 +36,7 @@ export function AdminSkillsPage() {
   const [skills, setSkills] = useState([]);
   const [newSkillInput, setNewSkillInput] = useState({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('Code2');
@@ -43,10 +44,20 @@ export function AdminSkillsPage() {
 
   const { addToast } = useToast();
 
+  const fetchSkills = async () => {
+    try {
+      setLoading(true);
+      const data = await skillService.getAll();
+      setSkills(data || []);
+    } catch (err) {
+      addToast(err.message || 'Failed to fetch skills', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const store = getStore();
-    setSkills(store.skills || []);
-    setLoading(false);
+    fetchSkills();
   }, []);
 
   const handleOpenCreateCategory = () => {
@@ -66,6 +77,7 @@ export function AdminSkillsPage() {
       .filter(Boolean);
 
     const newGroup = {
+      id: 'skill-' + Date.now(),
       category: newCategoryName.trim(),
       icon: newCategoryIcon,
       items: items.length > 0 ? items : ['Skill 1']
@@ -73,8 +85,7 @@ export function AdminSkillsPage() {
 
     const updated = [...skills, newGroup];
     setSkills(updated);
-    updateStore(s => ({ ...s, skills: updated }));
-    addToast(`Skill Category "${newCategoryName}" added successfully!`, 'success');
+    addToast(`Skill Category "${newCategoryName}" added. Click "Save All Technical Skills" to commit.`, 'info');
     setIsModalOpen(false);
   };
 
@@ -102,19 +113,33 @@ export function AdminSkillsPage() {
     setSkills(updated);
   };
 
-  const handleDeleteGroup = (idx) => {
+  const handleDeleteGroup = async (idx) => {
     if (window.confirm('Are you sure you want to delete this skill category?')) {
+      const target = skills[idx];
       const updated = skills.filter((_, i) => i !== idx);
       setSkills(updated);
-      updateStore(s => ({ ...s, skills: updated }));
-      addToast('Skill category deleted successfully.', 'info');
+      if (target?.id) {
+        try {
+          await skillService.delete(target.id);
+          addToast('Skill category deleted from Supabase PostgreSQL.', 'info');
+        } catch (e) {
+          // Fallback to save on next full save
+        }
+      }
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    updateStore(s => ({ ...s, skills }));
-    addToast('Technical Skills updated successfully!', 'success');
+    try {
+      setSaving(true);
+      await skillService.saveAll(skills);
+      addToast('Technical Skills updated and saved to Supabase PostgreSQL!', 'success');
+    } catch (err) {
+      addToast(err.message || 'Failed to save skills to Supabase', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <LoadingState message="Loading Technical Skills..." />;

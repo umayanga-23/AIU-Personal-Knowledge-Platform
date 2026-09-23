@@ -1,5 +1,4 @@
-const SUPABASE_URL = 'https://hazarfapmnkseudkicrz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_g-sCLHpLFZVg39NBcLW_UA_NalMnoN1';
+import { supabase } from './supabaseClient';
 
 // Session guard to prevent duplicate tracking within 10 seconds for the exact same page
 let lastTrackedPath = null;
@@ -38,20 +37,11 @@ export const analyticsService = {
     }
 
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/aiu_page_visits`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          page_path: pagePath,
-          referrer: referrer,
-          device_type: deviceType,
-          visited_at: new Date().toISOString()
-        })
+      await supabase.from('analytics_page_visits').insert({
+        page_path: pagePath,
+        referrer: referrer,
+        device_type: deviceType,
+        visited_at: new Date().toISOString()
       });
     } catch (err) {
       // Ignore network hiccups silently
@@ -66,14 +56,17 @@ export const analyticsService = {
   // Fetch all analytics data for Admin Dashboard
   async getDashboardAnalytics() {
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/aiu_page_visits?select=*&order=visited_at.desc&limit=1000`, {
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      });
-      if (!res.ok) throw new Error('Failed to fetch analytics');
-      const visits = await res.json();
+      const { data: visits, error } = await supabase
+        .from('analytics_page_visits')
+        .select('*')
+        .order('visited_at', { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        console.warn('Analytics fetch warning:', error.message);
+        return this.processAnalytics([]);
+      }
+
       return this.processAnalytics(visits || []);
     } catch (err) {
       console.warn('Analytics fetch warning:', err);

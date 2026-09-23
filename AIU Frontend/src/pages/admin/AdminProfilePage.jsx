@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getStore, updateStore } from '../../services/apiClient';
+import { profileService } from '../../services/profileService';
+import { mediaService } from '../../services/mediaService';
 import { useToast } from '../../context/ToastContext';
 import { Save, User, Mail, Phone, MapPin, Github, Linkedin, Camera, Image } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
@@ -10,46 +11,53 @@ import { formatImageUrl } from '../../utils/formValidation';
 export function AdminProfilePage() {
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
 
-  useEffect(() => {
-    const store = getStore();
-    setFormData(store.profile || {});
-    setLoading(false);
-  }, []);
-
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (err) => reject(err);
-    });
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await profileService.getProfile();
+      setFormData(data || {});
+    } catch (err) {
+      addToast(err.message || 'Failed to load profile', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   const handleImageFileSelect = async (file) => {
     if (!file) return;
     try {
-      const base64 = await fileToBase64(file);
-      setFormData(prev => ({ ...prev, profileImage: base64 }));
-      addToast(`Selected profile photo: ${file.name}`, 'info');
+      addToast(`Uploading profile image to Supabase Storage...`, 'info');
+      const { publicUrl } = await mediaService.uploadFile('profile', file, 'avatars');
+      setFormData(prev => ({ ...prev, profileImage: publicUrl }));
+      addToast(`Profile photo uploaded successfully!`, 'success');
     } catch (e) {
-      addToast('Failed to process image file', 'error');
+      addToast(e.message || 'Failed to upload image file to Supabase Storage', 'error');
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const formattedData = {
-      ...formData,
-      profileImage: formatImageUrl(formData.profileImage)
-    };
-    updateStore(s => ({
-      ...s,
-      profile: { ...s.profile, ...formattedData }
-    }));
-    setFormData(formattedData);
-    addToast('Profile & About Me details updated successfully!', 'success');
+    try {
+      setSaving(true);
+      const formattedData = {
+        ...formData,
+        profileImage: formatImageUrl(formData.profileImage)
+      };
+      await profileService.updateProfile(formattedData);
+      setFormData(formattedData);
+      addToast('Profile details updated successfully in Supabase PostgreSQL!', 'success');
+    } catch (err) {
+      addToast(err.message || 'Failed to save profile to database', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading || !formData) return <LoadingState message="Loading Profile Data..." />;

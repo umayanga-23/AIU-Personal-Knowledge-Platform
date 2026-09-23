@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { articleService } from '../../services/articleService';
+import { mediaService } from '../../services/mediaService';
 import { Plus, Edit2, Trash2, Eye, EyeOff, BookOpen, ExternalLink, FileText } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CharCounter, UrlValidator, ImagePreviewCard } from '../../components/common/FormValidationFeedback';
@@ -305,15 +306,17 @@ export function AdminArticlesPage() {
             <FileUpload
               label="Option 1: Upload Image File from Computer"
               accept="image/*"
-              maxSizeMB={5}
+              maxSizeMB={10}
               onFileSelect={async (file) => {
                 if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  setForm(prev => ({ ...prev, coverImage: reader.result }));
-                  addToast(`Selected cover banner: ${file.name}`, 'info');
-                };
-                reader.readAsDataURL(file);
+                try {
+                  addToast(`Uploading ${file.name} to Supabase Storage...`, 'info');
+                  const { publicUrl } = await mediaService.uploadFile('articles', file, 'covers');
+                  setForm(prev => ({ ...prev, coverImage: publicUrl }));
+                  addToast('Article cover uploaded to Supabase Storage successfully!', 'success');
+                } catch (e) {
+                  addToast(e.message || 'Storage upload failed', 'error');
+                }
               }}
             />
             <div>

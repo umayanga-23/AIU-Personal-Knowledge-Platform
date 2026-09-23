@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { projectService } from '../../services/projectService';
-import { getStore } from '../../services/apiClient';
+import { researchService } from '../../services/researchService';
+import { articleService } from '../../services/articleService';
+import { videoService } from '../../services/videoService';
 import { ExternalLink, Github, ArrowLeft, CheckCircle2, Layers, FileText, BookOpen, Video, ShieldCheck, Play } from 'lucide-react';
 import { LoadingState } from '../../components/common/LoadingState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -14,29 +16,42 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [store, setStore] = useState(null);
+  const [relatedData, setRelatedData] = useState({ research: [], articles: [], videos: [] });
 
   useEffect(() => {
+    let active = true;
     const fetchProject = async () => {
       try {
         setLoading(true);
         setError(null);
         const data = await projectService.getBySlug(slug);
+        if (!active) return;
         setProject(data);
-        setStore(getStore());
+
+        // Fetch related entities from database
+        const [researchList, articlesList, videosList] = await Promise.all([
+          researchService.getAllPublic().catch(() => []),
+          articleService.getAllPublic().catch(() => []),
+          videoService.getAllPublic().catch(() => [])
+        ]);
+
+        if (active) {
+          setRelatedData({
+            research: researchList || [],
+            articles: articlesList || [],
+            videos: videosList || []
+          });
+        }
       } catch (err) {
-        setError(err.message || 'Project not found');
+        if (active) setError(err.message || 'Project not found');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchProject();
 
-    window.addEventListener('aiu_store_updated', fetchProject);
-    window.addEventListener('storage', fetchProject);
     return () => {
-      window.removeEventListener('aiu_store_updated', fetchProject);
-      window.removeEventListener('storage', fetchProject);
+      active = false;
     };
   }, [slug]);
 
@@ -44,9 +59,9 @@ export function ProjectDetailPage() {
   if (error || !project) return <ErrorState message={error || 'Project not found'} />;
 
   // Connected entities
-  const relatedResearchPapers = store?.research.filter(r => project.relatedResearch?.includes(r.id) && r.status === 'PUBLISHED') || [];
-  const relatedKnowledgeArticles = store?.articles.filter(a => project.relatedArticles?.includes(a.id) && a.status === 'PUBLISHED') || [];
-  const relatedProjectVideos = store?.videos.filter(v => v.relatedProject === project.id || v.id === project.videoId) || [];
+  const relatedResearchPapers = relatedData.research.filter(r => project.relatedResearch?.includes(r.id)) || [];
+  const relatedKnowledgeArticles = relatedData.articles.filter(a => project.relatedArticles?.includes(a.id)) || [];
+  const relatedProjectVideos = relatedData.videos.filter(v => v.relatedProject === project.id || v.id === project.videoId) || [];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">

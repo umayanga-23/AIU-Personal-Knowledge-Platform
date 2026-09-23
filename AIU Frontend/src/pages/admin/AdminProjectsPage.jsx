@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { projectService } from '../../services/projectService';
+import { mediaService } from '../../services/mediaService';
 import { Plus, Edit2, Trash2, Eye, EyeOff, Sparkles, ExternalLink, Github, Video, Image, FileText, CheckSquare, UserCheck } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CharCounter, UrlValidator, ImagePreviewCard } from '../../components/common/FormValidationFeedback';
@@ -282,15 +283,17 @@ export function AdminProjectsPage() {
               <FileUpload
                 label="Option 1: Upload Image File from Computer"
                 accept="image/*"
-                maxSizeMB={5}
+                maxSizeMB={10}
                 onFileSelect={async (file) => {
                   if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    setForm(prev => ({ ...prev, thumbnail: reader.result }));
-                    addToast(`Selected thumbnail: ${file.name}`, 'info');
-                  };
-                  reader.readAsDataURL(file);
+                  try {
+                    addToast(`Uploading ${file.name} to Supabase Storage...`, 'info');
+                    const { publicUrl } = await mediaService.uploadFile('projects', file, 'thumbnails');
+                    setForm(prev => ({ ...prev, thumbnail: publicUrl }));
+                    addToast('Project thumbnail uploaded to Supabase Storage successfully!', 'success');
+                  } catch (e) {
+                    addToast(e.message || 'Storage upload failed', 'error');
+                  }
                 }}
               />
 
